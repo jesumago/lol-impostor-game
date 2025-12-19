@@ -5,16 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LoL Impostor: Screenshare Edition</title>
     <style>
-        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 500px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        body { background-color: #010a13; color: #f0e6d2; font-family: 'Open Sans', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 550px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         h1 { color: #c8aa6e; text-transform: uppercase; letter-spacing: 2px; }
+        h2 { color: #f0e6d2; margin-bottom: 15px; }
+        h3 { color: #cdbe91; margin-top: 20px; }
         button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 12px 20px; margin: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
         button:hover { background-color: #252c32; border-color: #c89b3c; color: #f0e6d2; }
         input { background: #010a13; color: #f0e6d2; border: 1px solid #785a28; padding: 10px; width: 70%; margin-bottom: 10px; }
-        .player-list { text-align: left; margin: 20px 0; border: 1px solid #3c3c3c; padding: 10px; max-height: 150px; overflow-y: auto; }
+        .player-list { text-align: left; margin: 20px 0; border: 1px solid #3c3c3c; padding: 10px; max-height: 150px; overflow-y: auto; font-size: 0.9rem; }
         .secret-box { background: #0a1428; border: 2px dashed #c89b3c; padding: 20px; margin: 20px 0; }
         img { width: 160px; border: 3px solid #785a28; margin-top: 15px; }
         .hidden { display: none; }
+        #timer { font-size: 2.5em; font-weight: bold; color: #50fa7b; margin-top: 20px; }
+        .vote-button-container button { width: 45%; margin: 5px; }
     </style>
 </head>
 <body>
@@ -24,16 +28,16 @@
     <hr style="border: 0; border-top: 1px solid #785a28; margin-bottom: 20px;">
 
     <div id="setup-screen">
-        <h3>Enter Player Names</h3>
-        <input type="text" id="name-input" placeholder="Enter name...">
-        <button onclick="addPlayer()">Add</button>
+        <h3>Enter Player Names (Min 3)</h3>
+        <input type="text" id="name-input" placeholder="Player Name...">
+        <button onclick="addPlayer()">Add Player</button>
         <div class="player-list" id="display-list">No players added yet.</div>
         <button id="start-btn" class="hidden" onclick="startGame()" style="background: #785a28; color: #fff;">Start Match</button>
     </div>
 
     <div id="reveal-screen" class="hidden">
         <h2 id="reveal-instruction">Everyone close your eyes!</h2>
-        <p id="reveal-target-name"></p>
+        <p id="reveal-target-name" style="font-size: 1.2em;"></p>
         <div id="secret-content" class="hidden">
             <div id="role-data" class="secret-box"></div>
             <button onclick="nextPlayer()">I've seen it. Hide!</button>
@@ -43,34 +47,202 @@
 
     <div id="gameplay-screen" class="hidden">
         <h2 id="game-status">Discussion Phase</h2>
-        <div id="game-main-content"></div>
+        <div id="timer">00:00</div>
+        <div id="game-main-content">
+            <p>Discuss who you think the Impostor is!</p>
+        </div>
         <hr style="border: 0; border-top: 1px solid #785a28; margin: 20px 0;">
         <div id="vote-section" class="hidden">
             <h3>Who is the Impostor?</h3>
-            <div id="vote-buttons"></div>
+            <div id="vote-buttons" class="vote-button-container"></div>
         </div>
         <button id="end-discussion-btn" onclick="startVoting()">End Discussion & Vote</button>
     </div>
 </div>
+
+<audio id="beep-sound" src="https://www.soundjay.com/buttons/beep-07a.mp3" preload="auto"></audio>
+<audio id="reveal-sound" src="https://www.soundjay.com/mechanical/camera-flash-2.mp3" preload="auto"></audio>
+<audio id="win-sound" src="https://www.soundjay.com/misc/success-sound-2.mp3" preload="auto"></audio>
+<audio id="lose-sound" src="https://www.soundjay.com/misc/fail-buzzer-01.mp3" preload="auto"></audio>
+
 
 <script>
     let players = [];
     let currentPlayerIndex = 0;
     let impostorIndex = -1;
     let targetChamp = null;
+    let timerInterval;
+    const DISCUSSION_TIME_SECONDS = 180; // 3 minutes for discussion
 
+    // Sound elements
+    const beepSound = document.getElementById('beep-sound');
+    const revealSound = document.getElementById('reveal-sound');
+    const winSound = document.getElementById('win-sound');
+    const loseSound = document.getElementById('lose-sound');
+
+    // Full 100+ Champion Pool
     const CHAMPION_POOL = [
-        { name: "Aatrox", region: "Runeterra", weapon: "Greatsword" },
-        { name: "Ahri", region: "Ionia", weapon: "Orb" },
-        { name: "Akali", region: "Ionia", weapon: "Kama" },
-        { name: "Caitlyn", region: "Piltover", weapon: "Rifle" },
-        { name: "Darius", region: "Noxus", weapon: "Axe" },
-        { name: "Ezreal", region: "Piltover", weapon: "Gauntlet" },
-        { name: "Garen", region: "Demacia", weapon: "Greatsword" },
-        { name: "Jinx", region: "Zaun", weapon: "Minigun" },
-        { name: "Lux", region: "Demacia", weapon: "Wand" },
-        { name: "Yasuo", region: "Ionia", weapon: "Katana" }
-        // Feel free to paste your full 100+ list here!
+        { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
+        { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
+        { name: "Akali", region: "Ionia", gender: "Female", weapon: "Kama", range: "Melee" },
+        { name: "Akshan", region: "Shurima", gender: "Male", weapon: "Grappling Hook Gun", range: "Ranged" },
+        { name: "Alistar", region: "Runeterra", gender: "Male", weapon: "Horns/Fists", range: "Melee" },
+        { name: "Amumu", region: "Shurima", gender: "Male", weapon: "Crying/Bandages", range: "Melee" },
+        { name: "Anivia", region: "Freljord", gender: "Female", weapon: "Ice Magic", range: "Ranged" },
+        { name: "Annie", region: "Noxus", gender: "Female", weapon: "Fire Magic/Tibbers", range: "Ranged" },
+        { name: "Aphelios", region: "Targon", gender: "Male", weapon: "5 Lunari Weapons", range: "Ranged" },
+        { name: "Ashe", region: "Freljord", gender: "Female", weapon: "Ice Bow", range: "Ranged" },
+        { name: "Aurelion Sol", region: "Runeterra", gender: "Male", weapon: "Celestial Power", range: "Ranged" },
+        { name: "Azir", region: "Shurima", gender: "Male", weapon: "Sand Soldiers", range: "Ranged" },
+        { name: "Bard", region: "Runeterra", gender: "Male", weapon: "Cosmic Chimes", range: "Ranged" },
+        { name: "Bel'Veth", region: "Void", gender: "Female", weapon: "True Form", range: "Melee" },
+        { name: "Blitzcrank", region: "Zaun", gender: "Male", weapon: "Piston Grab", range: "Melee" },
+        { name: "Brand", region: "Runeterra", gender: "Male", weapon: "Fire Magic", range: "Ranged" },
+        { name: "Braum", region: "Freljord", gender: "Male", weapon: "Giant Shield", range: "Melee" },
+        { name: "Caitlyn", region: "Piltover", gender: "Female", weapon: "Sniper Rifle", range: "Ranged" },
+        { name: "Camille", region: "Piltover", gender: "Female", weapon: "Hextech Legs", range: "Melee" },
+        { name: "Cassiopeia", region: "Noxus", gender: "Female", weapon: "Snake Venom", range: "Ranged" },
+        { name: "Cho'Gath", region: "Void", gender: "Male", weapon: "Claws/Teeth", range: "Melee" },
+        { name: "Corki", region: "Bandle City", gender: "Male", weapon: "Hextech Plane", range: "Ranged" },
+        { name: "Darius", region: "Noxus", gender: "Male", weapon: "Battleaxe", range: "Melee" },
+        { name: "Diana", region: "Targon", gender: "Female", weapon: "Moonblade", range: "Melee" },
+        { name: "Dr. Mundo", region: "Zaun", gender: "Male", weapon: "Cleaver/Machete", range: "Melee" },
+        { name: "Draven", region: "Noxus", gender: "Male", weapon: "Spinning Axes", range: "Ranged" },
+        { name: "Ekko", region: "Zaun", gender: "Male", weapon: "Time Bat", range: "Melee" },
+        { name: "Elise", region: "Shadow Isles", gender: "Female", weapon: "Spider Form", range: "Ranged" },
+        { name: "Evelynn", region: "Runeterra", gender: "Female", weapon: "Shadow Lashes", range: "Melee" },
+        { name: "Ezreal", region: "Piltover", gender: "Male", weapon: "Magic Gauntlet", range: "Ranged" },
+        { name: "Fiddlesticks", region: "Runeterra", gender: "Male", weapon: "Scythe/Fear", range: "Ranged" },
+        { name: "Fiora", region: "Demacia", gender: "Female", weapon: "Rapier", range: "Melee" },
+        { name: "Fizz", region: "Bilgewater", gender: "Male", weapon: "Trident", range: "Melee" },
+        { name: "Galio", region: "Demacia", gender: "Male", weapon: "Statue Fists", range: "Melee" },
+        { name: "Gangplank", region: "Bilgewater", gender: "Male", weapon: "Cutlass/Pistol", range: "Melee" },
+        { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" },
+        { name: "Gnar", region: "Freljord", gender: "Male", weapon: "Boomerang/Boulder", range: "Ranged" },
+        { name: "Gragas", region: "Freljord", gender: "Male", weapon: "Cask/Belly", range: "Melee" },
+        { name: "Graves", region: "Runeterra", gender: "Male", weapon: "Shotgun", range: "Ranged" },
+        { name: "Gwen", region: "Shadow Isles", gender: "Female", weapon: "Scissors", range: "Melee" },
+        { name: "Hecarim", region: "Shadow Isles", gender: "Male", weapon: "Lance", range: "Melee" },
+        { name: "Heimerdinger", region: "Piltover", gender: "Male", weapon: "Turrets/Grenades", range: "Ranged" },
+        { name: "Illaoi", region: "Bilgewater", gender: "Female", weapon: "Tentacles/Idol", range: "Melee" },
+        { name: "Irelia", region: "Ionia", gender: "Female", weapon: "Blades", range: "Melee" },
+        { name: "Ivern", region: "Runeterra", gender: "Male", weapon: "Nature Magic", range: "Ranged" },
+        { name: "Janna", region: "Zaun", gender: "Female", weapon: "Wind Staff", range: "Ranged" },
+        { name: "Jarvan IV", region: "Demacia", gender: "Male", weapon: "Lance", range: "Melee" },
+        { name: "Jax", region: "Runeterra", gender: "Male", weapon: "Lamp Post", range: "Melee" },
+        { name: "Jayce", region: "Piltover", gender: "Male", weapon: "Mercury Hammer", range: "Melee/Ranged" },
+        { name: "Jhin", region: "Ionia", gender: "Male", weapon: "Whisper", range: "Ranged" },
+        { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun/Rocket Launcher", range: "Ranged" },
+        { name: "Kai'Sa", region: "Void", gender: "Female", weapon: "Void Energy", range: "Ranged" },
+        { name: "Kalista", region: "Shadow Isles", gender: "Female", weapon: "Spectral Spears", range: "Ranged" },
+        { name: "Karma", region: "Ionia", gender: "Female", weapon: "Mantra/Fans", range: "Ranged" },
+        { name: "Karthus", region: "Shadow Isles", gender: "Male", weapon: "Death Magic", range: "Ranged" },
+        { name: "Kassadin", region: "Void", gender: "Male", weapon: "Void Blade", range: "Melee" },
+        { name: "Katarina", region: "Noxus", gender: "Female", weapon: "Daggers", range: "Melee" },
+        { name: "Kayle", region: "Targon", gender: "Female", weapon: "Flaming Sword", range: "Melee/Ranged" },
+        { name: "Kayn", region: "Ionia", gender: "Male", weapon: "Scythe", range: "Melee" },
+        { name: "Kennen", region: "Ionia", gender: "Male", weapon: "Shurikens", range: "Ranged" },
+        { name: "Kha'Zix", region: "Void", gender: "Male", weapon: "Claws", range: "Melee" },
+        { name: "Kindred", region: "Runeterra", gender: "Spirit", weapon: "Bow/Fangs", range: "Ranged" },
+        { name: "Kled", region: "Noxus", gender: "Male", weapon: "Axe/Bear Trap", range: "Melee" },
+        { name: "Kog'Maw", region: "Void", gender: "Male", weapon: "Corrosive Spit", range: "Ranged" },
+        { name: "LeBlanc", region: "Noxus", gender: "Female", weapon: "Illusion Magic", range: "Ranged" },
+        { name: "Lee Sin", region: "Ionia", gender: "Male", weapon: "Fists/Kicks", range: "Melee" },
+        { name: "Leona", region: "Targon", gender: "Female", weapon: "Sword/Shield", range: "Melee" },
+        { name: "Lillia", region: "Ionia", gender: "Female", weapon: "Staff", range: "Ranged" },
+        { name: "Lissandra", region: "Freljord", gender: "Female", weapon: "Ice Magic", range: "Ranged" },
+        { name: "Lucian", region: "Runeterra", gender: "Male", weapon: "Pistols", range: "Ranged" },
+        { name: "Lulu", region: "Bandle City", gender: "Female", weapon: "Faerie Magic", range: "Ranged" },
+        { name: "Lux", region: "Demacia", gender: "Female", weapon: "Light Magic/Wand", range: "Ranged" },
+        { name: "Malphite", region: "Runeterra", gender: "Male", weapon: "Rock Fists", range: "Melee" },
+        { name: "Malzahar", region: "Void", gender: "Male", weapon: "Void Magic", range: "Ranged" },
+        { name: "Maokai", region: "Shadow Isles", gender: "Male", weapon: "Enchanted Tree", range: "Melee" },
+        { name: "Master Yi", region: "Ionia", gender: "Male", weapon: "Wuju Blade", range: "Melee" },
+        { name: "Milio", region: "Ixtal", gender: "Male", weapon: "Fireballs", range: "Ranged" },
+        { name: "Miss Fortune", region: "Bilgewater", gender: "Female", weapon: "Pistols", range: "Ranged" },
+        { name: "Mordekaiser", region: "Shadow Isles", gender: "Male", weapon: "Mace", range: "Melee" },
+        { name: "Morgana", region: "Runeterra", gender: "Female", weapon: "Dark Magic", range: "Ranged" },
+        { name: "Nami", region: "Runeterra", gender: "Female", weapon: "Tidal Magic", range: "Ranged" },
+        { name: "Nasus", region: "Shurima", gender: "Male", weapon: "Staff", range: "Melee" },
+        { name: "Nautilus", region: "Bilgewater", gender: "Male", weapon: "Anchor", range: "Melee" },
+        { name: "Neeko", region: "Ixtal", gender: "Female", weapon: "Chameleon Magic", range: "Ranged" },
+        { name: "Nidalee", region: "Ixtal", gender: "Female", weapon: "Javelin/Cougar Form", range: "Ranged" },
+        { name: "Nilah", region: "Bilgewater", gender: "Female", weapon: "Water Whip", range: "Melee" },
+        { name: "Nocturne", region: "Runeterra", gender: "Male", weapon: "Blade Claws", range: "Melee" },
+        { name: "Nunu & Willump", region: "Freljord", gender: "Male", weapon: "Snowball/Yeti", range: "Melee" },
+        { name: "Olaf", region: "Freljord", gender: "Male", weapon: "Axes", range: "Melee" },
+        { name: "Orianna", region: "Piltover", gender: "Female", weapon: "The Ball", range: "Ranged" },
+        { name: "Ornn", region: "Freljord", gender: "Male", weapon: "Forge Hammer", range: "Melee" },
+        { name: "Pantheon", region: "Targon", gender: "Male", weapon: "Spear/Shield", range: "Melee" },
+        { name: "Poppy", region: "Demacia", gender: "Female", weapon: "Hammer", range: "Melee" },
+        { name: "Pyke", region: "Bilgewater", gender: "Male", weapon: "Harpoon", range: "Melee" },
+        { name: "Qiyana", region: "Ixtal", gender: "Female", weapon: "Element Blade", range: "Melee" },
+        { name: "Quinn", region: "Demacia", gender: "Female", weapon: "Crossbow/Valor", range: "Ranged" },
+        { name: "Rakan", region: "Ionia", gender: "Male", weapon: "Feathers", range: "Melee" },
+        { name: "Rammus", region: "Shurima", gender: "Male", weapon: "Spiked Shell", range: "Melee" },
+        { name: "Rek'Sai", region: "Void", gender: "Female", weapon: "Claws/Tunneling", range: "Melee" },
+        { name: "Rell", region: "Noxus", gender: "Female", weapon: "Lance/Armor", range: "Melee" },
+        { name: "Renata Glasc", region: "Zaun", gender: "Female", weapon: "Chemtech Glove", range: "Ranged" },
+        { name: "Renekton", region: "Shurima", gender: "Male", weapon: "Axe/Claws", range: "Melee" },
+        { name: "Rengar", region: "Runeterra", gender: "Male", weapon: "Claws/Bola", range: "Melee" },
+        { name: "Riven", region: "Noxus", gender: "Female", weapon: "Broken Sword", range: "Melee" },
+        { name: "Rumble", region: "Bandle City", gender: "Male", weapon: "Mech", range: "Ranged" },
+        { name: "Ryze", region: "Runeterra", gender: "Male", weapon: "Rune Magic", range: "Ranged" },
+        { name: "Samira", region: "Noxus", gender: "Female", weapon: "Pistol/Blade", range: "Ranged" },
+        { name: "Sejuani", region: "Freljord", gender: "Female", weapon: "Flail/Boar", range: "Melee" },
+        { name: "Senna", region: "Shadow Isles", gender: "Female", weapon: "Relic Cannon", range: "Ranged" },
+        { name: "Seraphine", region: "Piltover", gender: "Female", weapon: "Microphone", range: "Ranged" },
+        { name: "Sett", region: "Ionia", gender: "Male", weapon: "Fists", range: "Melee" },
+        { name: "Shaco", region: "Runeterra", gender: "Male", weapon: "Daggers/Clones", range: "Melee" },
+        { name: "Shen", region: "Ionia", gender: "Male", weapon: "Spirit Blade", range: "Melee" },
+        { name: "Shyvana", region: "Demacia", gender: "Female", weapon: "Claws/Dragon Form", range: "Melee" },
+        { name: "Singed", region: "Zaun", gender: "Male", weapon: "Poison/Shield", range: "Melee" },
+        { name: "Sion", region: "Noxus", gender: "Male", weapon: "Axe", range: "Melee" },
+        { name: "Sivir", region: "Shurima", gender: "Female", weapon: "Boomerang Blade", range: "Ranged" },
+        { name: "Skarner", region: "Shurima", gender: "Male", weapon: "Stinger/Claws", range: "Melee" },
+        { name: "Sona", region: "Demacia", gender: "Female", weapon: "Etwahl", range: "Ranged" },
+        { name: "Soraka", region: "Targon", gender: "Female", weapon: "Starcall", range: "Ranged" },
+        { name: "Swain", region: "Noxus", gender: "Male", weapon: "Demonic Hand", range: "Ranged" },
+        { name: "Sylas", region: "Demacia", gender: "Male", weapon: "Chains", range: "Melee" },
+        { name: "Syndra", region: "Ionia", gender: "Female", weapon: "Dark Orbs", range: "Ranged" },
+        { name: "Tahm Kench", region: "Runeterra", gender: "Male", weapon: "Tongue/Claws", range: "Melee" },
+        { name: "Taliyah", region: "Shurima", gender: "Female", weapon: "Earth Magic", range: "Ranged" },
+        { name: "Talon", region: "Noxus", gender: "Male", weapon: "Blades", range: "Melee" },
+        { name: "Taric", region: "Targon", gender: "Male", weapon: "Gemstone Shield", range: "Melee" },
+        { name: "Teemo", region: "Bandle City", gender: "Male", weapon: "Blowgun/Shrooms", range: "Ranged" },
+        { name: "Thresh", region: "Shadow Isles", gender: "Male", weapon: "Scythe/Lantern", range: "Ranged" },
+        { name: "Tristana", region: "Bandle City", gender: "Female", weapon: "Cannon", range: "Ranged" },
+        { name: "Trundle", region: "Freljord", gender: "Male", weapon: "Ice Club", range: "Melee" },
+        { name: "Tryndamere", region: "Freljord", gender: "Male", weapon: "Greatsword", range: "Melee" },
+        { name: "Twisted Fate", region: "Bilgewater", gender: "Male", weapon: "Cards", range: "Ranged" },
+        { name: "Twitch", region: "Zaun", gender: "Male", weapon: "Crossbow/Poison", range: "Ranged" },
+        { name: "Udyr", region: "Freljord", gender: "Male", weapon: "Spirit Fists", range: "Melee" },
+        { name: "Urgot", region: "Zaun", gender: "Male", weapon: "Cannon/Legs", range: "Ranged" },
+        { name: "Varus", region: "Runeterra", gender: "Male", weapon: "Bow", range: "Ranged" },
+        { name: "Vayne", region: "Demacia", gender: "Female", weapon: "Crossbow", range: "Ranged" },
+        { name: "Veigar", region: "Bandle City", gender: "Male", weapon: "Dark Magic", range: "Ranged" },
+        { name: "Vel'Koz", region: "Void", gender: "Male", weapon: "Energy Eye", range: "Ranged" },
+        { name: "Vex", region: "Shadow Isles", gender: "Female", weapon: "Shadow Magic", range: "Ranged" },
+        { name: "Vi", region: "Piltover", gender: "Female", weapon: "Hextech Gauntlets", range: "Melee" },
+        { name: "Viego", region: "Shadow Isles", gender: "Male", weapon: "Blade of the Ruined King", range: "Melee" },
+        { name: "Viktor", region: "Zaun", gender: "Male", weapon: "Hex Core Staff", range: "Ranged" },
+        { name: "Vladimir", region: "Noxus", gender: "Male", weapon: "Blood Magic", range: "Ranged" },
+        { name: "Volibear", region: "Freljord", gender: "Male", weapon: "Claws/Lightning", range: "Melee" },
+        { name: "Warwick", region: "Zaun", gender: "Male", weapon: "Claws/Fangs", range: "Melee" },
+        { name: "Wukong", region: "Ionia", gender: "Male", weapon: "Staff", range: "Melee" },
+        { name: "Xayah", region: "Ionia", gender: "Female", weapon: "Feather Blades", range: "Ranged" },
+        { name: "Xerath", region: "Shurima", gender: "Male", weapon: "Arcane Energy", range: "Ranged" },
+        { name: "Xin Zhao", region: "Demacia", gender: "Male", weapon: "Spear", range: "Melee" },
+        { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Katana", range: "Melee" },
+        { name: "Yone", region: "Ionia", gender: "Male", weapon: "Spirit & Steel Blades", range: "Melee" },
+        { name: "Yorick", region: "Shadow Isles", gender: "Male", weapon: "Grave Mist/Shovel", range: "Melee" },
+        { name: "Yuumi", region: "Bandle City", gender: "Female", weapon: "Book of Thresholds", range: "Ranged" },
+        { name: "Zac", region: "Zaun", gender: "Male", weapon: "Slime Fists", range: "Melee" },
+        { name: "Zeri", region: "Zaun", gender: "Female", weapon: "Spark Pistol", range: "Ranged" },
+        { name: "Ziggs", region: "Zaun", gender: "Male", weapon: "Hexplosives", range: "Ranged" },
+        { name: "Zilean", region: "Runeterra", gender: "Male", weapon: "Time Bombs", range: "Ranged" },
+        { name: "Zoe", region: "Targon", gender: "Female", weapon: "Bubble/Stars", range: "Ranged" },
+        { name: "Zyra", region: "Runeterra", gender: "Female", weapon: "Vines/Seeds", range: "Ranged" }
     ];
 
     function addPlayer() {
@@ -84,11 +256,26 @@
 
     function updatePlayerList() {
         const list = document.getElementById("display-list");
-        list.innerHTML = players.map(p => `• ${p}`).join("<br>");
-        if (players.length >= 3) document.getElementById("start-btn").classList.remove("hidden");
+        if (players.length === 0) {
+            list.innerHTML = "No players added yet.";
+            document.getElementById("start-btn").classList.add("hidden");
+        } else {
+            list.innerHTML = players.map((p, i) => `• ${p} <button onclick="removePlayer(${i})">X</button>`).join("<br>");
+            if (players.length >= 3) {
+                document.getElementById("start-btn").classList.remove("hidden");
+            } else {
+                document.getElementById("start-btn").classList.add("hidden");
+            }
+        }
+    }
+
+    function removePlayer(index) {
+        players.splice(index, 1);
+        updatePlayerList();
     }
 
     function startGame() {
+        beepSound.play();
         targetChamp = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
         impostorIndex = Math.floor(Math.random() * players.length);
         currentPlayerIndex = 0;
@@ -99,21 +286,23 @@
     }
 
     function prepareNextReveal() {
+        revealSound.play();
         document.getElementById("secret-content").classList.add("hidden");
         document.getElementById("show-btn").classList.remove("hidden");
-        document.getElementById("reveal-instruction").innerText = "EYES CLOSED!";
+        document.getElementById("reveal-instruction").innerText = "Everyone close your eyes!";
         document.getElementById("reveal-target-name").innerText = `Only ${players[currentPlayerIndex]} may look.`;
         document.getElementById("show-btn").innerText = `I am ${players[currentPlayerIndex]}, show my role`;
     }
 
     function showSecret() {
+        beepSound.play(); // Play a sound when role is shown
         document.getElementById("show-btn").classList.add("hidden");
         document.getElementById("secret-content").classList.remove("hidden");
         document.getElementById("reveal-instruction").innerText = "YOUR ROLE:";
         
         const roleBox = document.getElementById("role-data");
         if (currentPlayerIndex === impostorIndex) {
-            roleBox.innerHTML = `<h3>YOU ARE THE IMPOSTOR!</h3><p>HINTS:<br>Region: ${targetChamp.region}<br>Weapon: ${targetChamp.weapon}</p>`;
+            roleBox.innerHTML = `<h3>YOU ARE THE IMPOSTOR!</h3><p>HINTS:<br>Region: ${targetChamp.region}<br>Weapon: ${targetChamp.weapon}<br>Range: ${targetChamp.range}</p>`;
         } else {
             const imgName = targetChamp.name.replace(/\s/g, '');
             roleBox.innerHTML = `<h3>YOU ARE CREW</h3><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><h2>${targetChamp.name}</h2>`;
@@ -130,37 +319,4 @@
     }
 
     function startGameplay() {
-        document.getElementById("reveal-screen").classList.add("hidden");
-        document.getElementById("gameplay-screen").classList.remove("hidden");
-        document.getElementById("game-main-content").innerHTML = "<h3>Discussion Time!</h3><p>Talk on Discord. Try to find the Impostor!</p>";
-    }
-
-    function startVoting() {
-        document.getElementById("end-discussion-btn").classList.add("hidden");
-        document.getElementById("vote-section").classList.remove("hidden");
-        const btnContainer = document.getElementById("vote-buttons");
-        
-        btnContainer.innerHTML = players.map((p, idx) => 
-            `<button onclick="revealResult(${idx})">${p}</button>`
-        ).join("");
-    }
-
-    function revealResult(votedIdx) {
-        const isCorrect = votedIdx === impostorIndex;
-        const mainContent = document.getElementById("game-main-content");
-        
-        document.getElementById("vote-section").classList.add("hidden");
-        document.getElementById("game-status").innerText = "Match Results";
-        
-        mainContent.innerHTML = `
-            <h1 style="color: ${isCorrect ? '#50fa7b' : '#ff5555'}">${isCorrect ? 'CREW WINS!' : 'IMPOSTOR WINS!'}</h1>
-            <p>${players[votedIdx]} was voted out.</p>
-            <p>The Impostor was: <strong>${players[impostorIndex]}</strong></p>
-            <p>The Champion was: <strong>${targetChamp.name}</strong></p>
-            <button onclick="location.reload()">Play Again</button>
-        `;
-    }
-</script>
-
-</body>
-</html>
+        beepSound.play(); // Sound when
