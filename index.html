@@ -3,104 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hextech Impostor: Rift Edition</title>
+    <title>Hextech Impostor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --gold: #c8aa6e;
+            --dark-blue: #010a13;
+            --border: #785a28;
+            --button-hover: #1e2328;
+        }
+
         body { 
-            background: linear-gradient(rgba(1, 10, 19, 0.8), rgba(1, 10, 19, 0.8)), url('https://theme.zdassets.com/hc/theme_assets/43400/200155010/summoners_rift.jpg');
+            background: linear-gradient(rgba(1, 10, 19, 0.9), rgba(1, 10, 19, 0.9)), 
+                        url('https://theme.zdassets.com/hc/theme_assets/43400/200155010/summoners_rift.jpg');
             background-size: cover;
             background-position: center;
             color: #f0e6d2; 
-            font-family: 'Beaufort for LoL', serif; 
+            font-family: 'Montserrat', sans-serif; 
             display: flex; 
             justify-content: center; 
             align-items: center; 
             min-height: 100vh; 
             margin: 0; 
-            overflow: hidden;
         }
+
         #game-area { 
-            background: rgba(10, 20, 40, 0.9); 
-            border: 2px solid #785a28; 
+            background: rgba(10, 20, 40, 0.95); 
+            border: 1px solid var(--border); 
             padding: 40px; 
-            border-radius: 4px; 
+            border-radius: 2px; 
             text-align: center; 
-            width: 600px; 
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
-            position: relative;
+            width: 500px; 
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
         }
-        #game-area::before {
-            content: "";
-            position: absolute;
-            top: 5px; left: 5px; right: 5px; bottom: 5px;
-            border: 1px solid #463714;
-            pointer-events: none;
+
+        h1 { color: var(--gold); text-transform: uppercase; letter-spacing: 5px; font-weight: 700; margin-bottom: 30px; }
+        
+        input { 
+            background: transparent; 
+            color: #fff; 
+            border: 1px solid var(--border); 
+            padding: 12px; 
+            width: 70%; 
+            margin-bottom: 10px;
+            outline: none;
         }
-        h1 { color: #c8aa6e; text-transform: uppercase; letter-spacing: 4px; text-shadow: 0 0 10px rgba(200, 170, 110, 0.5); }
+
         button { 
-            background-color: #1e2328; 
-            color: #cdbe91; 
-            border: 1px solid #785a28; 
+            background: var(--dark-blue); 
+            color: var(--gold); 
+            border: 1px solid var(--border); 
             padding: 12px 24px; 
-            margin: 10px; 
             cursor: pointer; 
-            font-weight: bold; 
             text-transform: uppercase;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+            font-weight: 700;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
         }
-        button:hover { background-color: #252c32; border-color: #c89b3c; color: #f0e6d2; }
-        input { background: #010a13; color: #f0e6d2; border: 1px solid #785a28; padding: 12px; width: 75%; margin-bottom: 15px; }
-        .player-list { text-align: left; margin: 20px 0; border: 1px solid #785a28; background: rgba(0,0,0,0.4); padding: 15px; max-height: 120px; overflow-y: auto; }
-        .secret-box { background: #0a1428; border: 2px dashed #c89b3c; padding: 30px; margin: 25px 0; }
-        img { width: 180px; border: 4px solid #785a28; margin-top: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
-        .vote-row { display: flex; justify-content: space-between; align-items: center; background: rgba(30,35,40,0.8); margin: 8px 0; padding: 10px 20px; border: 1px solid #3c3c3c; }
+
+        button:hover:not(:disabled) { background: var(--gold); color: var(--dark-blue); }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .player-list { margin: 20px 0; font-size: 0.9rem; color: #a09b8c; line-height: 1.6; }
+        .secret-box { border: 1px solid var(--border); padding: 30px; margin: 20px 0; background: rgba(0,0,0,0.3); }
+        img { width: 160px; border: 1px solid var(--gold); margin-top: 15px; }
+
+        .vote-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 10px 0; 
+            border-bottom: 1px solid rgba(120, 90, 40, 0.3);
+        }
+
         .hidden { display: none; }
+        .win-text { font-size: 2rem; color: var(--gold); letter-spacing: 3px; }
     </style>
 </head>
 <body>
 
 <div id="game-area">
-    <h1>Hextech Impostor</h1>
-
     <div id="setup-screen">
-        <h3>Assemble the Squad (Min 3)</h3>
-        <input type="text" id="name-input" placeholder="Summoner Name...">
-        <button onclick="addPlayer()">Add</button>
+        <h1>Impostor</h1>
+        <input type="text" id="name-input" placeholder="SUMMONER NAME">
+        <button onclick="addPlayer()">ADD</button>
         <div class="player-list" id="display-list"></div>
-        <button id="start-btn" class="hidden" onclick="startGame()" style="background: #785a28; color: #fff;">Enter the Rift</button>
+        <button id="start-btn" class="hidden" onclick="startGame()">START MATCH</button>
     </div>
 
     <div id="reveal-screen" class="hidden">
-        <h2 id="reveal-instruction" style="color:#ff5555;">EYES CLOSED!</h2>
-        <h3 id="reveal-target-name"></h3>
+        <h2 id="reveal-target-name" style="color: var(--gold)"></h2>
         <div id="secret-content" class="hidden">
             <div id="role-data" class="secret-box"></div>
-            <p style="color: #c8aa6e; font-style: italic;">Incognito mode... Hiding in 5s</p>
         </div>
-        <button id="show-btn" onclick="showSecret()">I AM READY</button>
+        <button id="show-btn" onclick="showSecret()">VIEW ROLE</button>
     </div>
 
     <div id="gameplay-screen" class="hidden">
-        <h2 id="game-status">Discussion Phase</h2>
-        <p>Analyze the data. Locate the Impostor on Discord.</p>
+        <h1>Discussion</h1>
+        <p>Analyze the data. Find the Impostor.</p>
         <div id="vote-section" class="hidden">
+            <p id="vote-info" style="color: var(--gold); font-size: 0.8rem;"></p>
             <div id="vote-buttons"></div>
-            <button onclick="resetVotes()" style="font-size: 0.7rem; opacity: 0.6; margin-top:10px;">Clear Votes</button>
-            <button id="finalize-btn" style="background:#785a28; color:white; margin-top:20px; width: 100%;" onclick="calculateWinner()">FINALIZE JUDGMENT</button>
+            <button id="finalize-btn" class="hidden" style="margin-top: 20px; width: 100%;" onclick="calculateWinner()">FINALIZE RESULTS</button>
         </div>
-        <button id="start-vote-btn" onclick="showVotingUI()">Go to Voting</button>
+        <button id="start-vote-btn" onclick="showVotingUI()">VOTING PHASE</button>
     </div>
 </div>
-
-<audio id="beep" src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>
-<audio id="ding" src="https://www.soundjay.com/misc/bell-ringing-05.mp3"></audio>
 
 <script>
     let players = [];
     let votes = {};
+    let totalVotesCast = 0;
     let currentPlayerIndex = 0;
     let impostorIndex = -1;
     let targetChamp = null;
 
+    // Expand this to 150 as needed
     const CHAMPION_POOL = [
         { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Heavy Blade", range: "Melee" },
         { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Energy Orb", range: "Ranged" },
@@ -266,21 +285,19 @@
     ];
 
     function addPlayer() {
-        const nameInput = document.getElementById("name-input");
-        const name = nameInput.value.trim();
+        const input = document.getElementById("name-input");
+        const name = input.value.trim().toUpperCase();
         if (name) {
             players.push(name);
-            nameInput.value = "";
+            input.value = "";
             document.getElementById("display-list").innerHTML = players.map(p => `• ${p}`).join("<br>");
             if (players.length >= 3) document.getElementById("start-btn").classList.remove("hidden");
         }
     }
 
     function startGame() {
-        document.getElementById("beep").play();
         targetChamp = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
         impostorIndex = Math.floor(Math.random() * players.length);
-        currentPlayerIndex = 0;
         document.getElementById("setup-screen").classList.add("hidden");
         document.getElementById("reveal-screen").classList.remove("hidden");
         prepareNext();
@@ -289,8 +306,7 @@
     function prepareNext() {
         document.getElementById("secret-content").classList.add("hidden");
         document.getElementById("show-btn").classList.remove("hidden");
-        document.getElementById("reveal-instruction").innerText = "EVERYONE CLOSE EYES!";
-        document.getElementById("reveal-target-name").innerText = `${players[currentPlayerIndex]}, step forward.`;
+        document.getElementById("reveal-target-name").innerText = `${players[currentPlayerIndex]}, IT IS YOUR TURN`;
     }
 
     function showSecret() {
@@ -299,31 +315,21 @@
         
         const roleBox = document.getElementById("role-data");
         if (currentPlayerIndex === impostorIndex) {
-            const hintOptions = [
-                `Region: ${targetChamp.region}`, 
-                `Weapon Class: ${targetChamp.weapon}`, 
-                `Range: ${targetChamp.range}`,
-                `Gender: ${targetChamp.gender}`
-            ];
-            const randomHint = hintOptions[Math.floor(Math.random() * hintOptions.length)];
-            roleBox.innerHTML = `<h3>ROLE: IMPOSTOR</h3><p>ONE HINT LOGGED:<br>${randomHint}</p>`;
+            const hints = [`REGION: ${targetChamp.region}`, `WEAPON: ${targetChamp.weapon}`, `RANGE: ${targetChamp.range}`, `GENDER: ${targetChamp.gender}`];
+            roleBox.innerHTML = `<h3>IMPOSTOR</h3><p>${hints[Math.floor(Math.random() * hints.length)]}</p>`;
         } else {
             const imgName = targetChamp.name.replace(/[^a-zA-Z]/g, '');
-            roleBox.innerHTML = `<h3>ROLE: CREW</h3><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><br><b>${targetChamp.name}</b>`;
+            roleBox.innerHTML = `<h3>CREW</h3><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><br><b>${targetChamp.name}</b>`;
         }
 
         setTimeout(() => {
             currentPlayerIndex++;
-            if (currentPlayerIndex < players.length) {
-                prepareNext();
-            } else {
-                startDiscussion();
-            }
+            if (currentPlayerIndex < players.length) prepareNext();
+            else startDiscussion();
         }, 5000); 
     }
 
     function startDiscussion() {
-        document.getElementById("ding").play();
         document.getElementById("reveal-screen").classList.add("hidden");
         document.getElementById("gameplay-screen").classList.remove("hidden");
     }
@@ -332,60 +338,59 @@
         document.getElementById("start-vote-btn").classList.add("hidden");
         document.getElementById("vote-section").classList.remove("hidden");
         players.forEach((_, i) => votes[i] = 0);
-        renderVoteButtons();
+        totalVotesCast = 0;
+        updateVoteDisplay();
     }
 
     function logVote(idx) {
-        votes[idx]++;
-        renderVoteButtons();
+        if (totalVotesCast < players.length) {
+            votes[idx]++;
+            totalVotesCast++;
+            updateVoteDisplay();
+        }
     }
 
-    function resetVotes() {
-        players.forEach((_, i) => votes[i] = 0);
-        renderVoteButtons();
-    }
-
-    function renderVoteButtons() {
+    function updateVoteDisplay() {
         const container = document.getElementById("vote-buttons");
+        const remaining = players.length - totalVotesCast;
+        document.getElementById("vote-info").innerText = `${remaining} VOTES REMAINING`;
+        
         container.innerHTML = players.map((p, i) => `
             <div class="vote-row">
                 <span>${p}</span>
                 <div>
-                    <span style="color:#c8aa6e; margin-right:15px; font-weight:bold;">${votes[i]}</span>
-                    <button onclick="logVote(${i})">+</button>
+                    <span style="margin-right:15px;">${votes[i]}</span>
+                    <button onclick="logVote(${i})" ${totalVotesCast >= players.length ? 'disabled' : ''}>+</button>
                 </div>
             </div>
         `).join("");
+
+        if (totalVotesCast === players.length) {
+            document.getElementById("finalize-btn").classList.remove("hidden");
+        }
     }
 
     function calculateWinner() {
-        let maxVotes = -1;
         let winners = [];
-
+        let max = -1;
         for (let i in votes) {
-            if (votes[i] > maxVotes) {
-                maxVotes = votes[i];
-                winners = [i];
-            } else if (votes[i] === maxVotes) {
-                winners.push(i);
-            }
+            if (votes[i] > max) { max = votes[i]; winners = [i]; }
+            else if (votes[i] === max) { winners.push(i); }
         }
 
         if (winners.length > 1) {
-            alert("STALEMATE! Tie detected. Players must argue for 30s before a final vote.");
+            alert("TIE DETECTED. RESETTING VOTES FOR TIEBREAKER.");
+            showVotingUI();
             return;
         }
 
-        const votedIdx = parseInt(winners[0]);
-        const win = votedIdx === impostorIndex;
-        
+        const win = parseInt(winners[0]) === impostorIndex;
         document.getElementById("game-area").innerHTML = `
-            <h1>${win ? 'VICTORY' : 'DEFEAT'}</h1>
-            <p>${players[votedIdx]} was eliminated with ${maxVotes} votes.</p>
-            <hr style="border-top:1px solid #785a28">
-            <p>The Impostor: <b>${players[impostorIndex]}</b></p>
-            <p>The Champion: <b>${targetChamp.name}</b></p>
-            <button onclick="location.reload()">New Match</button>
+            <h1 class="win-text">${win ? 'VICTORY' : 'DEFEAT'}</h1>
+            <p>${players[winners[0]]} WAS ELIMINATED</p>
+            <p>IMPOSTOR: ${players[impostorIndex]}</p>
+            <p>CHAMPION: ${targetChamp.name}</p>
+            <button onclick="location.reload()">REPLAY</button>
         `;
     }
 </script>
