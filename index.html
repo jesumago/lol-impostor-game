@@ -1,40 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoL Impostor Game</title>
-    <script src="https://unpkg.com/playroomkit/multiplayer.umd.js"></script>
-    <style>
-        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 90%; max-width: 450px; position: relative; }
-        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; text-transform: uppercase; border-radius: 2px; }
-        button:hover { background-color: #252c32; border-color: #c89b3c; }
-        .timer { font-size: 2.5rem; color: #c8aa6e; margin: 10px 0; font-weight: bold; }
-        img { width: 140px; border: 3px solid #785a28; margin-top: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
-        .role-box { padding: 15px; border: 1px dashed #785a28; margin: 15px 0; background: rgba(0,0,0,0.2); }
-        #chat-container { margin-top: 15px; border-top: 1px solid #3c3c3c; padding-top: 10px; }
-        #chat-box { height: 80px; overflow-y: auto; text-align: left; font-size: 0.85rem; background: rgba(0,0,0,0.3); padding: 8px; margin-bottom: 5px; color: #a09b8c; }
-        #chat-input { background: #010a13; color: #f0e6d2; border: 1px solid #785a28; padding: 5px; width: 60%; }
-    </style>
-</head>
-<body>
-
-<div id="game-area">
-    <h1 id="status" style="font-size: 1.2rem; color: #c8aa6e;">Initializing Hextech...</h1>
-    <div id="content"></div>
-    
-    <div id="chat-container">
-        <div id="chat-box"></div>
-        <input type="text" id="chat-input" placeholder="Type here...">
-        <button onclick="sendChat()">SEND</button>
-    </div>
-</div>
-
 <script>
 const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlayers, onChatMessage, RPC } = Playroom;
 
-// Your 100+ List here
 const CHAMPION_POOL = [
     { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
     { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
@@ -48,39 +14,35 @@ const CHAMPION_POOL = [
     { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun", range: "Ranged" },
     { name: "Lux", region: "Demacia", gender: "Female", weapon: "Wand", range: "Ranged" },
     { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Katana", range: "Melee" }
-    // ... rest of your list
 ];
 
 async function init() {
-    try {
-        // We use a unique ID to ensure you aren't trying to join a "ghost" session
-        await insertCoin(); 
-        
-        // If this runs, it means you are successfully connected!
-        document.getElementById("status").style.display = "none";
-        
-        onChatMessage((msg, sender) => {
-            const chatBox = document.getElementById("chat-box");
-            if(chatBox){
-                chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-        });
+    // We try to connect without a complex 'try/catch' that triggers the black box immediately
+    await insertCoin({
+        gameId: "lol-impostor-final-v5",
+        skipLobby: true
+    });
 
-        if (isHost()) {
-            setupNewRound();
-        }
-        
-        requestAnimationFrame(gameLoop);
-    } catch(e) {
-        console.error("Connection Error:", e);
-        // This confirms the connection is failing at the SDK level
-        document.getElementById("status").innerText = "Storage Blocked. Check browser Cookie settings.";
+    // If we reach here, we are connected! Hide the loading message.
+    document.getElementById("status").style.display = "none";
+
+    onChatMessage((msg, sender) => {
+        const chatBox = document.getElementById("chat-box");
+        chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    if (isHost()) {
+        setupNewRound();
     }
+    
+    gameLoop();
 }
+
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
-    const impostor = getPlayers()[Math.floor(Math.random() * getPlayers().length)];
+    const players = getPlayers();
+    const impostor = players[Math.floor(Math.random() * players.length)];
     setState("targetChamp", champ, true);
     setState("impostorId", impostor.id, true);
     setState("gamePhase", "LOBBY", true);
@@ -89,108 +51,39 @@ function setupNewRound() {
 function gameLoop() {
     const phase = getState("gamePhase");
     const content = document.getElementById("content");
-    const status = document.getElementById("status");
+    const statusHeader = document.getElementById("status");
 
     if (phase === "LOBBY") {
-        status.innerText = "Game Lobby";
         content.innerHTML = isHost() ? 
-            `<button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START</button>
-             <button onclick="setupNewRound()">RE-ROLL CHAMP</button>` : 
-            "<p>Waiting for host...</p>";
+            `<h2>Lobby</h2><button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START</button>` : 
+            "<h2>Lobby</h2><p>Waiting for host...</p>";
     }
 
     if (phase === "ROLE_REVEAL") {
         const isImpostor = myPlayer().id === getState("impostorId");
         const champ = getState("targetChamp");
-        status.innerText = isImpostor ? "YOU ARE THE IMPOSTOR" : "YOU ARE CREW";
         content.innerHTML = isImpostor ? 
-            `<div class="role-box">HINTS:<br>Region: ${champ.region}<br>Gender: ${champ.gender}<br>Weapon: ${champ.weapon}</div>` :
-            `<img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
+            `<h1>IMPOSTOR</h1><p>HINTS: ${champ.region}, ${champ.weapon}</p>` :
+            `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
         
         if(isHost()){
-            setTimeout(() => { if(getState("gamePhase") === "ROLE_REVEAL") startTurns(); }, 8000);
+            setTimeout(() => { if(getState("gamePhase") === "ROLE_REVEAL") setState("gamePhase", "TALKING", true); }, 8000);
         }
     }
 
-    if (phase === "TALKING") {
-        const players = getPlayers();
-        const idx = getState("speakerIndex") || 0;
-        const speaker = players[idx];
-        status.innerText = `${speaker.getProfile().name} is speaking...`;
-        content.innerHTML = `<div class="timer">${getState("turnTimer") || 30}</div>`;
-        
-        if (isHost()) {
-            if (!this.lastTime || Date.now() - this.lastTime > 1000) {
-                this.lastTime = Date.now();
-                let t = getState("turnTimer") || 30;
-                if (t > 0) setState("turnTimer", t - 1, true);
-                else nextTurn();
-            }
-        }
-    }
-
-    if (phase === "VOTING") {
-        status.innerText = "VOTE FOR IMPOSTOR!";
-        if (!myPlayer().getState("votedFor")) {
-            content.innerHTML = "";
-            getPlayers().forEach(p => {
-                const b = document.createElement("button");
-                b.innerText = p.getProfile().name;
-                b.onclick = () => myPlayer().setState("votedFor", p.id, true);
-                content.appendChild(b);
-            });
-        } else {
-            content.innerHTML = "Vote registered!";
-        }
-        if (isHost() && getPlayers().every(p => p.getState("votedFor"))) calcResults();
-    }
-
-    if (phase === "RESULTS") {
-        const winner = getState("winner");
-        status.innerText = winner === "IMPOSTOR" ? "IMPOSTOR WON!" : "CREW WON!";
-        content.innerHTML = `<button onclick="location.reload()">NEW GAME</button>`;
-    }
+    // (Simplified talking/voting for testing)
+    if (phase === "TALKING") { content.innerHTML = "<h2>Discuss!</h2>"; }
 
     requestAnimationFrame(gameLoop);
-}
-
-function startTurns() {
-    setState("gamePhase", "TALKING", true);
-    setState("speakerIndex", 0, true);
-    setState("turnTimer", 30, true);
-}
-
-function nextTurn() {
-    let idx = getState("speakerIndex");
-    if (idx < getPlayers().length - 1) {
-        setState("speakerIndex", idx + 1, true);
-        setState("turnTimer", 30, true);
-    } else {
-        setState("gamePhase", "VOTING", true);
-    }
-}
-
-function calcResults() {
-    const votes = {};
-    getPlayers().forEach(p => {
-        const v = p.getState("votedFor");
-        votes[v] = (votes[v] || 0) + 1;
-    });
-    const mostVoted = Object.keys(votes).reduce((a, b) => votes[a] > votes[b] ? a : b);
-    setState("winner", mostVoted === getState("impostorId") ? "CREW" : "IMPOSTOR", true);
-    setState("gamePhase", "RESULTS", true);
 }
 
 function sendChat() {
     const input = document.getElementById("chat-input");
     if (input.value.trim() !== "") {
-        RPC.call("send-msg", input.value, RPC.Mode.ALL);
-        Playroom.chat(input.value); // This triggers the onChatMessage for everyone
+        Playroom.chat(input.value);
         input.value = "";
     }
 }
 
 init();
 </script>
-</body>
-</html>
