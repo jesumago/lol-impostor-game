@@ -8,23 +8,27 @@
     <style>
         body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 450px; }
-        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
-        button:hover { background-color: #252c32; border-color: #c89b3c; }
+        .join-btn { background-color: #c8aa6e; color: #010a13; border: 1px solid #785a28; padding: 20px 40px; font-size: 24px; cursor: pointer; font-weight: bold; border-radius: 4px; }
+        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; }
         img { width: 140px; border: 3px solid #785a28; margin-top: 10px; }
-        .role-box { padding: 15px; border: 1px dashed #785a28; margin: 15px 0; background: rgba(0,0,0,0.2); }
-        #chat-box { height: 120px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 8px; text-align: left; font-size: 0.85rem; border: 1px solid #3c3c3c; }
-        input { background: #010a13; color: #f0e6d2; border: 1px solid #785a28; padding: 5px; width: 60%; }
+        #chat-box { height: 100px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 8px; text-align: left; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
 <div id="game-area">
-    <div id="status"><h1>Connecting...</h1><p>Allow popups if prompted.</p></div>
-    <div id="content"></div>
-    <div id="chat-container" style="display:none;">
-        <div id="chat-box"></div>
-        <input type="text" id="chat-input" placeholder="Type answer/guess...">
-        <button onclick="sendChat()">SEND</button>
+    <div id="start-screen">
+        <button class="join-btn" onclick="startMultiplayer()">JOIN LOBBY</button>
+        <p style="margin-top: 10px;">Click to open the nickname window.</p>
+    </div>
+
+    <div id="main-game" style="display:none;">
+        <div id="content"></div>
+        <div id="chat-container">
+            <div id="chat-box"></div>
+            <input type="text" id="chat-input" placeholder="Type here...">
+            <button onclick="sendChat()">SEND</button>
+        </div>
     </div>
 </div>
 
@@ -36,48 +40,63 @@ const CHAMPION_POOL = [
     { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
     { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun", range: "Ranged" },
     { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" }
-    // ... rest of your 100+ list
 ];
 
-// 1. This new function forces the popup to open only when YOU click
 async function startMultiplayer() {
     try {
-        document.getElementById("status").innerHTML = "<h1>Connecting...</h1>";
-        await insertCoin({ gameId: "lol-imp-final-v10" });
-        document.getElementById("status").style.display = "none";
+        // This is the line that opens the popup
+        await insertCoin({ gameId: "lol-imp-v20" });
         
+        // Hide button, show game
+        document.getElementById("start-screen").style.display = "none";
+        document.getElementById("main-game").style.display = "block";
+
+        onChatMessage((msg, sender) => {
+            const chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
         if (isHost()) { setupNewRound(); }
         gameLoop();
     } catch (e) {
-        document.getElementById("status").innerHTML = "<button onclick='startMultiplayer()'>CLICK TO JOIN LOBBY</button>";
+        alert("If you see this, please click 'Allow Popups' in your browser bar.");
     }
 }
 
-// 2. We start the game by showing a button instead of an automatic popup
-document.getElementById("status").innerHTML = "<button onclick='startMultiplayer()' style='font-size: 20px; padding: 20px;'>JOIN GAME LOBBY</button>";
-
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
-    const impostor = getPlayers()[Math.floor(Math.random() * getPlayers().length)];
     setState("targetChamp", champ, true);
-    setState("impostorId", impostor.id, true);
+    setState("impostorId", getPlayers()[0].id, true); // First player starts as impostor for test
     setState("gamePhase", "LOBBY", true);
 }
 
 function gameLoop() {
     const phase = getState("gamePhase");
     const content = document.getElementById("content");
+
     if (phase === "LOBBY") {
         content.innerHTML = isHost() ? 
-            `<button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START</button>` : 
-            "Waiting for host...";
+            `<h2>Lobby</h2><button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>` : 
+            "<h2>Lobby</h2><p>Waiting for host...</p>";
     }
+
     if (phase === "ROLE_REVEAL") {
         const isImpostor = myPlayer().id === getState("impostorId");
         const champ = getState("targetChamp");
-        content.innerHTML = isImpostor ? `<h1>IMPOSTOR</h1>` : `<h1>${champ.name}</h1>`;
+        content.innerHTML = isImpostor ? 
+            `<h1>IMPOSTOR</h1><p>HINTS: ${champ.region}, ${champ.weapon}</p>` :
+            `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
     }
     requestAnimationFrame(gameLoop);
+}
+
+function sendChat() {
+    const input = document.getElementById("chat-input");
+    if (input.value.trim() !== "") {
+        Playroom.chat(input.value);
+        input.value = "";
+    }
 }
 </script>
 </body>
