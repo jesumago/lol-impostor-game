@@ -9,17 +9,17 @@
         body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 450px; }
         .join-btn { background-color: #c8aa6e; color: #010a13; border: 1px solid #785a28; padding: 20px 40px; font-size: 24px; cursor: pointer; font-weight: bold; border-radius: 4px; }
-        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; }
-        img { width: 140px; border: 3px solid #785a28; margin-top: 10px; }
         #chat-box { height: 100px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 8px; text-align: left; font-size: 0.85rem; }
+        img { width: 140px; border: 3px solid #785a28; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div id="game-area">
-    <div id="start-screen">
-        <button class="join-btn" onclick="startMultiplayer()">JOIN LOBBY</button>
-        <p style="margin-top: 10px;">Click to open the nickname window.</p>
+    <div id="ui-container">
+        <h1>Hextech Portal</h1>
+        <button class="join-btn" onclick="startMultiplayer()">JOIN GAME</button>
+        <p id="message">Click to establish connection.</p>
     </div>
 
     <div id="main-game" style="display:none;">
@@ -43,12 +43,13 @@ const CHAMPION_POOL = [
 ];
 
 async function startMultiplayer() {
+    document.getElementById("message").innerText = "Connecting... (If it hangs, check your internet)";
+    
     try {
-        // This is the line that opens the popup
-        await insertCoin({ gameId: "lol-imp-v20" });
+        // We set skipLobby: true to avoid the popup window entirely
+        await insertCoin({ gameId: "lol-imp-v30", skipLobby: true });
         
-        // Hide button, show game
-        document.getElementById("start-screen").style.display = "none";
+        document.getElementById("ui-container").style.display = "none";
         document.getElementById("main-game").style.display = "block";
 
         onChatMessage((msg, sender) => {
@@ -60,14 +61,14 @@ async function startMultiplayer() {
         if (isHost()) { setupNewRound(); }
         gameLoop();
     } catch (e) {
-        alert("If you see this, please click 'Allow Popups' in your browser bar.");
+        document.getElementById("message").innerText = "Connection failed. Please try a different network/Wi-Fi.";
     }
 }
 
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
     setState("targetChamp", champ, true);
-    setState("impostorId", getPlayers()[0].id, true); // First player starts as impostor for test
+    setState("impostorId", myPlayer().id, true); 
     setState("gamePhase", "LOBBY", true);
 }
 
