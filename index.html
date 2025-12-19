@@ -5,82 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LoL Impostor: Screenshare Edition</title>
     <style>
-        body { background-color: #010a13; color: #f0e6d2; font-family: 'Open Sans', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 550px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; }
+        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 500px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         h1 { color: #c8aa6e; text-transform: uppercase; letter-spacing: 2px; }
-        h2 { color: #f0e6d2; margin-bottom: 15px; }
-        h3 { color: #cdbe91; margin-top: 20px; }
-        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 12px 20px; margin: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
-        button:hover { background-color: #252c32; border-color: #c89b3c; color: #f0e6d2; }
+        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 12px 20px; margin: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        button:hover { background-color: #252c32; border-color: #c89b3c; }
         input { background: #010a13; color: #f0e6d2; border: 1px solid #785a28; padding: 10px; width: 70%; margin-bottom: 10px; }
-        .player-list { text-align: left; margin: 20px 0; border: 1px solid #3c3c3c; padding: 10px; max-height: 150px; overflow-y: auto; font-size: 0.9rem; }
+        .player-list { text-align: left; margin: 20px 0; border: 1px solid #3c3c3c; padding: 10px; max-height: 150px; overflow-y: auto; }
         .secret-box { background: #0a1428; border: 2px dashed #c89b3c; padding: 20px; margin: 20px 0; }
         img { width: 160px; border: 3px solid #785a28; margin-top: 15px; }
+        #timer { font-size: 3rem; color: #c8aa6e; font-weight: bold; margin: 20px 0; }
         .hidden { display: none; }
-        #timer { font-size: 2.5em; font-weight: bold; color: #50fa7b; margin-top: 20px; }
-        .vote-button-container button { width: 45%; margin: 5px; }
     </style>
 </head>
 <body>
 
 <div id="game-area">
     <h1>Hextech Impostor</h1>
-    <hr style="border: 0; border-top: 1px solid #785a28; margin-bottom: 20px;">
 
     <div id="setup-screen">
-        <h3>Enter Player Names (Min 3)</h3>
-        <input type="text" id="name-input" placeholder="Player Name...">
-        <button onclick="addPlayer()">Add Player</button>
-        <div class="player-list" id="display-list">No players added yet.</div>
-        <button id="start-btn" class="hidden" onclick="startGame()" style="background: #785a28; color: #fff;">Start Match</button>
+        <h3>Add Players (Min 3)</h3>
+        <input type="text" id="name-input" placeholder="Name...">
+        <button onclick="addPlayer()">Add</button>
+        <div class="player-list" id="display-list"></div>
+        <button id="start-btn" class="hidden" onclick="startGame()">Start Match</button>
     </div>
 
     <div id="reveal-screen" class="hidden">
-        <h2 id="reveal-instruction">Everyone close your eyes!</h2>
-        <p id="reveal-target-name" style="font-size: 1.2em;"></p>
+        <h2 id="reveal-instruction">EYES CLOSED!</h2>
+        <h3 id="reveal-target-name"></h3>
         <div id="secret-content" class="hidden">
             <div id="role-data" class="secret-box"></div>
-            <button onclick="nextPlayer()">I've seen it. Hide!</button>
+            <p style="color: #c8aa6e;">Hiding in 2 seconds...</p>
         </div>
-        <button id="show-btn" onclick="showSecret()">I am [Name], show my role</button>
+        <button id="show-btn" onclick="showSecret()">I AM READY (SHOW ROLE)</button>
     </div>
 
     <div id="gameplay-screen" class="hidden">
         <h2 id="game-status">Discussion Phase</h2>
-        <div id="timer">00:00</div>
-        <div id="game-main-content">
-            <p>Discuss who you think the Impostor is!</p>
-        </div>
-        <hr style="border: 0; border-top: 1px solid #785a28; margin: 20px 0;">
+        <div id="timer">03:00</div>
         <div id="vote-section" class="hidden">
             <h3>Who is the Impostor?</h3>
-            <div id="vote-buttons" class="vote-button-container"></div>
+            <div id="vote-buttons"></div>
         </div>
-        <button id="end-discussion-btn" onclick="startVoting()">End Discussion & Vote</button>
+        <button id="vote-btn" onclick="startVoting()">Go to Voting</button>
     </div>
 </div>
 
-<audio id="beep-sound" src="https://www.soundjay.com/buttons/beep-07a.mp3" preload="auto"></audio>
-<audio id="reveal-sound" src="https://www.soundjay.com/mechanical/camera-flash-2.mp3" preload="auto"></audio>
-<audio id="win-sound" src="https://www.soundjay.com/misc/success-sound-2.mp3" preload="auto"></audio>
-<audio id="lose-sound" src="https://www.soundjay.com/misc/fail-buzzer-01.mp3" preload="auto"></audio>
-
+<audio id="beep" src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>
+<audio id="ding" src="https://www.soundjay.com/misc/bell-ringing-05.mp3"></audio>
 
 <script>
     let players = [];
     let currentPlayerIndex = 0;
     let impostorIndex = -1;
     let targetChamp = null;
-    let timerInterval;
-    const DISCUSSION_TIME_SECONDS = 180; // 3 minutes for discussion
+    let countdown;
 
-    // Sound elements
-    const beepSound = document.getElementById('beep-sound');
-    const revealSound = document.getElementById('reveal-sound');
-    const winSound = document.getElementById('win-sound');
-    const loseSound = document.getElementById('lose-sound');
-
-    // Full 100+ Champion Pool
     const CHAMPION_POOL = [
         { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
         { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
@@ -246,77 +227,96 @@
     ];
 
     function addPlayer() {
-        const input = document.getElementById("name-input");
-        if (input.value.trim() !== "") {
-            players.push(input.value.trim());
-            input.value = "";
-            updatePlayerList();
+        const name = document.getElementById("name-input").value.trim();
+        if (name) {
+            players.push(name);
+            document.getElementById("name-input").value = "";
+            document.getElementById("display-list").innerHTML = players.map(p => `• ${p}`).join("<br>");
+            if (players.length >= 3) document.getElementById("start-btn").classList.remove("hidden");
         }
-    }
-
-    function updatePlayerList() {
-        const list = document.getElementById("display-list");
-        if (players.length === 0) {
-            list.innerHTML = "No players added yet.";
-            document.getElementById("start-btn").classList.add("hidden");
-        } else {
-            list.innerHTML = players.map((p, i) => `• ${p} <button onclick="removePlayer(${i})">X</button>`).join("<br>");
-            if (players.length >= 3) {
-                document.getElementById("start-btn").classList.remove("hidden");
-            } else {
-                document.getElementById("start-btn").classList.add("hidden");
-            }
-        }
-    }
-
-    function removePlayer(index) {
-        players.splice(index, 1);
-        updatePlayerList();
     }
 
     function startGame() {
-        beepSound.play();
         targetChamp = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
         impostorIndex = Math.floor(Math.random() * players.length);
         currentPlayerIndex = 0;
-        
         document.getElementById("setup-screen").classList.add("hidden");
         document.getElementById("reveal-screen").classList.remove("hidden");
-        prepareNextReveal();
+        prepareNext();
     }
 
-    function prepareNextReveal() {
-        revealSound.play();
+    function prepareNext() {
         document.getElementById("secret-content").classList.add("hidden");
         document.getElementById("show-btn").classList.remove("hidden");
-        document.getElementById("reveal-instruction").innerText = "Everyone close your eyes!";
-        document.getElementById("reveal-target-name").innerText = `Only ${players[currentPlayerIndex]} may look.`;
-        document.getElementById("show-btn").innerText = `I am ${players[currentPlayerIndex]}, show my role`;
+        document.getElementById("reveal-instruction").innerText = "EVERYONE CLOSE EYES!";
+        document.getElementById("reveal-target-name").innerText = `${players[currentPlayerIndex]}, it is your turn.`;
+        document.getElementById("beep").play();
     }
 
     function showSecret() {
-        beepSound.play(); // Play a sound when role is shown
         document.getElementById("show-btn").classList.add("hidden");
         document.getElementById("secret-content").classList.remove("hidden");
-        document.getElementById("reveal-instruction").innerText = "YOUR ROLE:";
+        document.getElementById("reveal-instruction").innerText = "YOUR SECRET:";
         
         const roleBox = document.getElementById("role-data");
         if (currentPlayerIndex === impostorIndex) {
-            roleBox.innerHTML = `<h3>YOU ARE THE IMPOSTOR!</h3><p>HINTS:<br>Region: ${targetChamp.region}<br>Weapon: ${targetChamp.weapon}<br>Range: ${targetChamp.range}</p>`;
+            // Give only ONE random hint
+            const hints = [`Region: ${targetChamp.region}`, `Weapon: ${targetChamp.weapon}`, `Range: ${targetChamp.range}`];
+            const randomHint = hints[Math.floor(Math.random() * hints.length)];
+            roleBox.innerHTML = `<h3>YOU ARE THE IMPOSTOR</h3><p>${randomHint}</p>`;
         } else {
             const imgName = targetChamp.name.replace(/\s/g, '');
-            roleBox.innerHTML = `<h3>YOU ARE CREW</h3><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><h2>${targetChamp.name}</h2>`;
+            roleBox.innerHTML = `<h3>CREW</h3><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><br><b>${targetChamp.name}</b>`;
         }
+
+        // AUTO-HIDE after 2 seconds
+        setTimeout(() => {
+            currentPlayerIndex++;
+            if (currentPlayerIndex < players.length) {
+                prepareNext();
+            } else {
+                startDiscussion();
+            }
+        }, 2500); // 2.5 seconds to be safe
     }
 
-    function nextPlayer() {
-        currentPlayerIndex++;
-        if (currentPlayerIndex < players.length) {
-            prepareNextReveal();
-        } else {
-            startGameplay();
-        }
+    function startDiscussion() {
+        document.getElementById("reveal-screen").classList.add("hidden");
+        document.getElementById("gameplay-screen").classList.remove("hidden");
+        document.getElementById("ding").play();
+        
+        let time = 180;
+        countdown = setInterval(() => {
+            time--;
+            let mins = Math.floor(time / 60);
+            let secs = time % 60;
+            document.getElementById("timer").innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            if (time <= 0) {
+                clearInterval(countdown);
+                startVoting();
+            }
+        }, 1000);
     }
 
-    function startGameplay() {
-        beepSound.play(); // Sound when
+    function startVoting() {
+        clearInterval(countdown);
+        document.getElementById("timer").innerText = "VOTING TIME";
+        document.getElementById("vote-btn").classList.add("hidden");
+        document.getElementById("vote-section").classList.remove("hidden");
+        const votes = document.getElementById("vote-buttons");
+        votes.innerHTML = players.map((p, i) => `<button onclick="endGame(${i})">${p}</button>`).join("");
+    }
+
+    function endGame(votedIdx) {
+        const win = votedIdx === impostorIndex;
+        document.getElementById("game-area").innerHTML = `
+            <h1>${win ? 'CREW WINS!' : 'IMPOSTOR WINS!'}</h1>
+            <p>${players[votedIdx]} was voted out.</p>
+            <p>The Impostor was: <b>${players[impostorIndex]}</b></p>
+            <p>The Champion was: <b>${targetChamp.name}</b></p>
+            <button onclick="location.reload()">New Game</button>
+        `;
+    }
+</script>
+</body>
+</html>
