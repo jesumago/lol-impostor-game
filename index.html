@@ -53,15 +53,15 @@ const CHAMPION_POOL = [
 
 async function init() {
     try {
-        // We add a specific gameId and disable the default lobby 
-        // to bypass connection hangs.
+        // Changing the gameId forces the browser to create a clean new room
         await insertCoin({
-            gameId: "lol-impostor-game-v1",
-            skipLobby: true, 
-            matchmaking: true
+            gameId: "lol-impostor-fresh-v2", 
+            skipLobby: true
         }); 
         
-        // Listen for chat
+        // This clears the error message immediately on success
+        document.getElementById("status").innerText = "";
+        
         onChatMessage((msg, sender) => {
             const chatBox = document.getElementById("chat-box");
             if(chatBox){
@@ -74,12 +74,11 @@ async function init() {
             setupNewRound();
         }
         
-        // Success! Clear the status message
-        document.getElementById("status").innerText = "";
         requestAnimationFrame(gameLoop);
     } catch(e) {
-        console.error(e);
-        document.getElementById("status").innerText = "Connection Failed. Try refreshing once more.";
+        console.error("Connection Error:", e);
+        // This is the text you see in your last screenshot
+        document.getElementById("status").innerText = "Still blocked? Try a Non-Incognito window.";
     }
 }
 
