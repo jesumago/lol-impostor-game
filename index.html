@@ -54,11 +54,7 @@ const CHAMPION_POOL = [
 async function init() {
     try {
         // We use a unique ID to ensure you aren't trying to join a "ghost" session
-        await insertCoin({
-            gameId: "lol-impostor-final-v3", 
-            skipLobby: true,
-            matchmaking: true
-        }); 
+        await insertCoin(); 
         
         // If this runs, it means you are successfully connected!
         document.getElementById("status").style.display = "none";
