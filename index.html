@@ -17,28 +17,30 @@ const CHAMPION_POOL = [
 ];
 
 async function init() {
-    // We try to connect without a complex 'try/catch' that triggers the black box immediately
+    // We remove the try/catch completely. 
+    // This stops the "Storage Blocked" box from appearing.
     await insertCoin({
-        gameId: "lol-impostor-final-v5",
+        gameId: "lol-impostor-v100", 
         skipLobby: true
-    });
+    }); 
 
-    // If we reach here, we are connected! Hide the loading message.
+    // Once connected, hide the loading screen
     document.getElementById("status").style.display = "none";
-
+    
     onChatMessage((msg, sender) => {
         const chatBox = document.getElementById("chat-box");
-        chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
+        if(chatBox){
+            chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     });
 
     if (isHost()) {
         setupNewRound();
     }
     
-    gameLoop();
+    requestAnimationFrame(gameLoop);
 }
-
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
     const players = getPlayers();
