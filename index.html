@@ -7,20 +7,23 @@
     <script src="https://unpkg.com/playroomkit/multiplayer.umd.js"></script>
     <style>
         body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 400px; }
-        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; }
+        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 450px; }
+        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        button:hover { background-color: #252c32; border-color: #c89b3c; }
         img { width: 140px; border: 3px solid #785a28; margin-top: 10px; }
-        #chat-box { height: 100px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 5px; text-align: left; font-size: 0.8rem; }
+        .role-box { padding: 15px; border: 1px dashed #785a28; margin: 15px 0; background: rgba(0,0,0,0.2); }
+        #chat-box { height: 120px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 8px; text-align: left; font-size: 0.85rem; border: 1px solid #3c3c3c; }
+        input { background: #010a13; color: #f0e6d2; border: 1px solid #785a28; padding: 5px; width: 60%; }
     </style>
 </head>
 <body>
 
 <div id="game-area">
-    <div id="status"><h1>Connecting to Hextech...</h1><p>Please wait for the nickname popup.</p></div>
+    <div id="status"><h1>Connecting...</h1><p>Allow popups if prompted.</p></div>
     <div id="content"></div>
-    <div id="chat-container">
+    <div id="chat-container" style="display:none;">
         <div id="chat-box"></div>
-        <input type="text" id="chat-input" placeholder="Type answer...">
+        <input type="text" id="chat-input" placeholder="Type answer/guess...">
         <button onclick="sendChat()">SEND</button>
     </div>
 </div>
@@ -31,14 +34,39 @@ const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlaye
 const CHAMPION_POOL = [
     { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
     { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
+    { name: "Akali", region: "Ionia", gender: "Female", weapon: "Kama", range: "Melee" },
+    { name: "Akshan", region: "Shurima", gender: "Male", weapon: "Grappling Hook Gun", range: "Ranged" },
+    { name: "Annie", region: "Noxus", gender: "Female", weapon: "Fire Magic", range: "Ranged" },
+    { name: "Ashe", region: "Freljord", gender: "Female", weapon: "Ice Bow", range: "Ranged" },
+    { name: "Braum", region: "Freljord", gender: "Male", weapon: "Giant Shield", range: "Melee" },
+    { name: "Caitlyn", region: "Piltover", gender: "Female", weapon: "Sniper Rifle", range: "Ranged" },
+    { name: "Darius", region: "Noxus", gender: "Male", weapon: "Battleaxe", range: "Melee" },
+    { name: "Draven", region: "Noxus", gender: "Male", weapon: "Spinning Axes", range: "Ranged" },
+    { name: "Ekko", region: "Zaun", gender: "Male", weapon: "Time Bat", range: "Melee" },
+    { name: "Ezreal", region: "Piltover", gender: "Male", weapon: "Magic Gauntlet", range: "Ranged" },
+    { name: "Fiora", region: "Demacia", gender: "Female", weapon: "Rapier", range: "Melee" },
+    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" },
     { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun", range: "Ranged" },
-    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" }
+    { name: "Katarina", region: "Noxus", gender: "Female", weapon: "Daggers", range: "Melee" },
+    { name: "Lee Sin", region: "Ionia", gender: "Male", weapon: "Fists/Kicks", range: "Melee" },
+    { name: "Lux", region: "Demacia", gender: "Female", weapon: "Wand", range: "Ranged" },
+    { name: "Miss Fortune", region: "Bilgewater", gender: "Female", weapon: "Pistols", range: "Ranged" },
+    { name: "Nasus", region: "Shurima", gender: "Male", weapon: "Staff", range: "Melee" },
+    { name: "Pyke", region: "Bilgewater", gender: "Male", weapon: "Harpoon", range: "Melee" },
+    { name: "Sett", region: "Ionia", gender: "Male", weapon: "Fists", range: "Melee" },
+    { name: "Teemo", region: "Bandle City", gender: "Male", weapon: "Blowgun", range: "Ranged" },
+    { name: "Thresh", region: "Shadow Isles", gender: "Male", weapon: "Scythe", range: "Ranged" },
+    { name: "Vayne", region: "Demacia", gender: "Female", weapon: "Crossbow", range: "Ranged" },
+    { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Katana", range: "Melee" },
+    { name: "Zed", region: "Ionia", gender: "Male", weapon: "Shadow Blades", range: "Melee" }
+    // (You can add the rest of the 100+ list here later)
 ];
 
 async function init() {
     try {
-        await insertCoin({ gameId: "lol-imp-v7", skipLobby: true });
+        await insertCoin({ gameId: "lol-imp-final-v9" });
         document.getElementById("status").style.display = "none";
+        document.getElementById("chat-container").style.display = "block";
         
         onChatMessage((msg, sender) => {
             const chatBox = document.getElementById("chat-box");
@@ -49,13 +77,14 @@ async function init() {
         if (isHost()) { setupNewRound(); }
         gameLoop();
     } catch (e) {
-        document.getElementById("status").innerHTML = "<h1>Connection Error</h1><p>Check popup/cookie settings.</p>";
+        document.getElementById("status").innerHTML = "<h1>Blocked</h1><p>Please allow popups and refresh.</p>";
     }
 }
 
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
-    const impostor = getPlayers()[Math.floor(Math.random() * getPlayers().length)];
+    const players = getPlayers();
+    const impostor = players[Math.floor(Math.random() * players.length)];
     setState("targetChamp", champ, true);
     setState("impostorId", impostor.id, true);
     setState("gamePhase", "LOBBY", true);
@@ -67,16 +96,30 @@ function gameLoop() {
 
     if (phase === "LOBBY") {
         content.innerHTML = isHost() ? 
-            `<h2>Lobby</h2><button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>` : 
-            "<h2>Lobby</h2><p>Waiting for host...</p>";
+            `<h2>Lobby</h2><button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>
+             <button onclick="setupNewRound()">RE-ROLL</button>` : 
+            "<h2>Lobby</h2><p>Wait for host to start...</p>";
     }
 
     if (phase === "ROLE_REVEAL") {
         const isImpostor = myPlayer().id === getState("impostorId");
         const champ = getState("targetChamp");
+        const imgName = champ.name.replace(/\s/g, ''); 
+        
         content.innerHTML = isImpostor ? 
-            `<h1>IMPOSTOR</h1><p>HINTS: ${champ.region}, ${champ.weapon}</p>` :
-            `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
+            `<div class="role-box"><h1>IMPOSTOR</h1><p>HINTS:<br>Region: ${champ.region}<br>Weapon: ${champ.weapon}<br>Range: ${champ.range}</p></div>` :
+            `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><h2>${champ.name}</h2>`;
+        
+        if (isHost()) {
+            setTimeout(() => { if(getState("gamePhase") === "ROLE_REVEAL") setState("gamePhase", "VOTING", true); }, 15000);
+        }
+    }
+
+    if (phase === "VOTING") {
+        content.innerHTML = "<h3>Who is the Impostor?</h3><p>Use the chat to discuss!</p>";
+        if (isHost()) {
+            content.innerHTML += `<button onclick="setState('gamePhase', 'LOBBY', true)">RESET ROUND</button>`;
+        }
     }
 
     requestAnimationFrame(gameLoop);
@@ -90,29 +133,7 @@ function sendChat() {
     }
 }
 
-async function init() {
-    try {
-        // Most basic connection possible to avoid timeouts
-        await insertCoin(); 
-        
-        // Hide the error box immediately on success
-        document.getElementById("status").style.display = "none";
-        
-        onChatMessage((msg, sender) => {
-            const chatBox = document.getElementById("chat-box");
-            if(chatBox){
-                chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-        });
-
-        if (isHost()) { setupNewRound(); }
-        requestAnimationFrame(gameLoop);
-    } catch (e) {
-        // This is what you see in image_757e1f.png
-        console.error(e);
-    }
-};
+init();
 </script>
 </body>
 </html>
