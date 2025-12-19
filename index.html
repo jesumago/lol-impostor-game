@@ -9,8 +9,9 @@
         body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 450px; }
         .join-btn { background-color: #c8aa6e; color: #010a13; border: 1px solid #785a28; padding: 20px 40px; font-size: 24px; cursor: pointer; font-weight: bold; border-radius: 4px; }
-        #chat-box { height: 100px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 8px; text-align: left; font-size: 0.85rem; }
+        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; }
         img { width: 140px; border: 3px solid #785a28; margin-top: 10px; }
+        #chat-box { height: 100px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 8px; text-align: left; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -19,7 +20,7 @@
     <div id="ui-container">
         <h1>Hextech Portal</h1>
         <button class="join-btn" onclick="startMultiplayer()">JOIN GAME</button>
-        <p id="message">Click to establish connection.</p>
+        <p id="message">Attempting to sync with Hextech servers...</p>
     </div>
 
     <div id="main-game" style="display:none;">
@@ -38,16 +39,25 @@ const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlaye
 const CHAMPION_POOL = [
     { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
     { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
+    { name: "Akali", region: "Ionia", gender: "Female", weapon: "Kama", range: "Melee" },
+    { name: "Ashe", region: "Freljord", gender: "Female", weapon: "Ice Bow", range: "Ranged" },
+    { name: "Braum", region: "Freljord", gender: "Male", weapon: "Shield", range: "Melee" },
+    { name: "Caitlyn", region: "Piltover", gender: "Female", weapon: "Rifle", range: "Ranged" },
+    { name: "Darius", region: "Noxus", gender: "Male", weapon: "Axe", range: "Melee" },
+    { name: "Ezreal", region: "Piltover", gender: "Male", weapon: "Gauntlet", range: "Ranged" },
+    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" },
     { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun", range: "Ranged" },
-    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" }
+    { name: "Lux", region: "Demacia", gender: "Female", weapon: "Wand", range: "Ranged" },
+    { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Katana", range: "Melee" }
 ];
 
 async function startMultiplayer() {
-    document.getElementById("message").innerText = "Connecting... (If it hangs, check your internet)";
+    const msg = document.getElementById("message");
+    msg.innerText = "Attempting to sync with Hextech servers...";
     
     try {
-        // We set skipLobby: true to avoid the popup window entirely
-        await insertCoin({ gameId: "lol-imp-v30", skipLobby: true });
+        // Safe mode connection
+        await insertCoin(); 
         
         document.getElementById("ui-container").style.display = "none";
         document.getElementById("main-game").style.display = "block";
@@ -61,14 +71,17 @@ async function startMultiplayer() {
         if (isHost()) { setupNewRound(); }
         gameLoop();
     } catch (e) {
-        document.getElementById("message").innerText = "Connection failed. Please try a different network/Wi-Fi.";
+        msg.innerText = "Connection blocked by network. Try switching to mobile data.";
+        console.error("Playroom Sync Error:", e);
     }
 }
 
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
+    const players = getPlayers();
+    const impostor = players[Math.floor(Math.random() * players.length)];
     setState("targetChamp", champ, true);
-    setState("impostorId", myPlayer().id, true); 
+    setState("impostorId", impostor.id, true);
     setState("gamePhase", "LOBBY", true);
 }
 
@@ -78,16 +91,24 @@ function gameLoop() {
 
     if (phase === "LOBBY") {
         content.innerHTML = isHost() ? 
-            `<h2>Lobby</h2><button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>` : 
-            "<h2>Lobby</h2><p>Waiting for host...</p>";
+            `<h2>Lobby</h2>
+             <button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>
+             <button onclick="setupNewRound()">RE-ROLL CHAMPION</button>` : 
+            "<h2>Lobby</h2><p>Waiting for host to start...</p>";
     }
 
     if (phase === "ROLE_REVEAL") {
         const isImpostor = myPlayer().id === getState("impostorId");
         const champ = getState("targetChamp");
+        const imgName = champ.name.replace(/\s/g, ''); 
+        
         content.innerHTML = isImpostor ? 
-            `<h1>IMPOSTOR</h1><p>HINTS: ${champ.region}, ${champ.weapon}</p>` :
-            `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
+            `<h1>IMPOSTOR</h1><p>HINTS:<br>Region: ${champ.region}<br>Weapon: ${champ.weapon}</p>` :
+            `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><h2>${champ.name}</h2>`;
+        
+        if (isHost()) {
+            content.innerHTML += `<br><button onclick="setState('gamePhase', 'LOBBY', true)">BACK TO LOBBY</button>`;
+        }
     }
     requestAnimationFrame(gameLoop);
 }
