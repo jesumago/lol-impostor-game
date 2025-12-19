@@ -20,6 +20,12 @@
 <div id="game-area">
     <h1 id="status">Loading Hextech...</h1>
     <div id="content"></div>
+    
+    <div id="chat-container" style="margin-top: 20px; border-top: 1px solid #785a28; padding-top: 10px;">
+        <div id="chat-box" style="height: 100px; overflow-y: auto; text-align: left; font-size: 0.8rem; margin-bottom: 5px; background: rgba(0,0,0,0.3); padding: 5px;"></div>
+        <input type="text" id="chat-input" placeholder="Type answer..." style="width: 70%; background: #1e2328; color: #cdbe91; border: 1px solid #785a28;">
+        <button onclick="sendChat()" style="padding: 5px; margin: 0;">Send</button>
+    </div>
 </div>
 
 <script>
