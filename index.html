@@ -27,7 +27,7 @@
         <div id="content"></div>
         <div id="chat-container">
             <div id="chat-box"></div>
-            <input type="text" id="chat-input" placeholder="Type here...">
+            <input type="text" id="chat-input" placeholder="Type answer...">
             <button onclick="sendChat()">SEND</button>
         </div>
     </div>
@@ -56,8 +56,8 @@ async function startMultiplayer() {
     msg.innerText = "Attempting to sync with Hextech servers...";
     
     try {
-        // Safe mode connection
-        await insertCoin(); 
+        // Safe mode connection - No popup window
+        await insertCoin({ skipLobby: true }); 
         
         document.getElementById("ui-container").style.display = "none";
         document.getElementById("main-game").style.display = "block";
@@ -72,7 +72,7 @@ async function startMultiplayer() {
         gameLoop();
     } catch (e) {
         msg.innerText = "Connection blocked by network. Try switching to mobile data.";
-        console.error("Playroom Sync Error:", e);
+        console.error("Sync Error:", e);
     }
 }
 
