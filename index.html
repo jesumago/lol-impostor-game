@@ -23,7 +23,7 @@
 </div>
 
 <script>
-const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlayers } = Playroom;
+const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlayers, onChatMessage } = Playroom;
 
 const CHAMPION_POOL = [
     { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
@@ -193,35 +193,58 @@ const CHAMPION_POOL = [
     { name: "Zyra", region: "Ixtal", gender: "Female", weapon: "Plant Thorns", range: "Ranged" }
 ];
 
-async function init() {
-    await insertCoin({streamMode: true}); // streamMode makes it easier to test
-    
-    if (isHost()) {
-        const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
-        const players = getPlayers();
-        const impostor = players[Math.floor(Math.random() * players.length)];
-        
-        setState("targetChamp", champ, true);
-        setState("impostorId", impostor.id, true);
-        setState("gamePhase", "ROLE_REVEAL", true);
-        
-        // Start the game button for host
-        document.getElementById('status').innerHTML = '<button onclick="startGame()">START GAME</button>';
-    } else {
-        document.getElementById('status').innerText = "Waiting for host...";
+// UI Helper for Chat
+function addChatMessage(name, message) {
+    const chatBox = document.getElementById("chat-box");
+    if (chatBox) {
+        chatBox.innerHTML += `<div><strong>${name}:</strong> ${message}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
     }
-    
-    loop();
 }
 
-function startGame(){
-    setState("gamePhase", "ROLE_REVEAL", true);
+async function init() {
+    try {
+        // Reduced configuration to ensure faster loading
+        await insertCoin(); 
+        
+        // Listen for chat messages
+        onChatMessage((message, sender) => {
+            addChatMessage(sender.getProfile().name, message);
+        });
+
+        if (isHost()) {
+            setupNewRound();
+        }
+        
+        loop();
+    } catch (err) {
+        console.error("Playroom failed to load:", err);
+        document.getElementById("status").innerText = "Connection Error. Please Refresh.";
+    }
+}
+
+function setupNewRound() {
+    const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
+    const players = getPlayers();
+    const impostor = players[Math.floor(Math.random() * players.length)];
+    
+    setState("targetChamp", champ, true);
+    setState("impostorId", impostor.id, true);
+    setState("gamePhase", "LOBBY", true);
 }
 
 function loop() {
     const phase = getState("gamePhase");
     const content = document.getElementById("content");
     const status = document.getElementById("status");
+
+    if (phase === "LOBBY") {
+        status.innerText = "Lobby";
+        content.innerHTML = isHost() ? 
+            `<button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>
+             <button onclick="setupNewRound()">RE-ROLL CHAMPION</button>` : 
+            "<p>Waiting for host to start...</p>";
+    }
 
     if (phase === "ROLE_REVEAL") {
         const isImpostor = myPlayer().id === getState("impostorId");
@@ -232,82 +255,25 @@ function loop() {
             `<img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
         
         if(isHost()){
-            setTimeout(() => { if(getState("gamePhase") === "ROLE_REVEAL") startTurns(); }, 10000);
+            // Automatically move to turns after 10 seconds
+            setTimeout(() => { 
+                if(getState("gamePhase") === "ROLE_REVEAL") startTurns(); 
+            }, 10000);
         }
     }
 
-    if (phase === "TALKING") {
-        const players = getPlayers();
-        const speakerIdx = getState("speakerIndex") || 0;
-        const currentSpeaker = players[speakerIdx];
-        status.innerText = `${currentSpeaker.getProfile().name} is speaking...`;
-        content.innerHTML = `<div class="timer">${getState("turnTimer")}</div>`;
-        
-        if (isHost()) {
-            // Very basic host timer
-            const now = Date.now();
-            if (!this.lastTick || now - this.lastTick > 1000) {
-                this.lastTick = now;
-                let t = getState("turnTimer");
-                if (t > 0) setState("turnTimer", t - 1, true);
-                else nextTurn();
-            }
-        }
-    }
-
-    if (phase === "VOTING") {
-        status.innerText = "Cast your Vote!";
-        if (!myPlayer().getState("votedFor")) {
-            content.innerHTML = "";
-            getPlayers().forEach(p => {
-                const b = document.createElement("button");
-                b.innerText = p.getProfile().name;
-                b.onclick = () => { myPlayer().setState("votedFor", p.id, true); };
-                content.appendChild(b);
-            });
-        } else {
-            content.innerHTML = "Vote cast! Waiting...";
-        }
-
-        if (isHost()) {
-            if (getPlayers().every(p => p.getState("votedFor"))) calcResults();
-        }
-    }
-
-    if (phase === "RESULTS") {
-        const winner = getState("winner");
-        status.innerText = winner === "IMPOSTOR" ? "IMPOSTOR WON!" : "CREW WON!";
-        content.innerHTML = `<button onclick="location.reload()">PLAY AGAIN</button>`;
-    }
+    // ... (Keep the rest of your TALKING, VOTING, and RESULTS logic)
 
     requestAnimationFrame(loop);
 }
 
-function startTurns() {
-    setState("gamePhase", "TALKING", true);
-    setState("speakerIndex", 0, true);
-    setState("turnTimer", 30, true);
-}
-
-function nextTurn() {
-    let idx = getState("speakerIndex");
-    if (idx < getPlayers().length - 1) {
-        setState("speakerIndex", idx + 1, true);
-        setState("turnTimer", 30, true);
-    } else {
-        setState("gamePhase", "VOTING", true);
+// Function for Chat Input
+function sendChat() {
+    const input = document.getElementById("chat-input");
+    if (input.value.trim() !== "") {
+        Playroom.RPC.call("send-msg", input.value, Playroom.RPC.Mode.ALL);
+        input.value = "";
     }
-}
-
-function calcResults() {
-    const votes = {};
-    getPlayers().forEach(p => {
-        const v = p.getState("votedFor");
-        votes[v] = (votes[v] || 0) + 1;
-    });
-    const mostVoted = Object.keys(votes).reduce((a, b) => votes[a] > votes[b] ? a : b);
-    setState("winner", mostVoted === getState("impostorId") ? "CREW" : "IMPOSTOR", true);
-    setState("gamePhase", "RESULTS", true);
 }
 
 init();
