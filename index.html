@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LoL Impostor: Screenshare Edition</title>
     <style>
-        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; }
-        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 500px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow-x: hidden; }
+        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 550px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         h1 { color: #c8aa6e; text-transform: uppercase; letter-spacing: 2px; }
         button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 12px 20px; margin: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
         button:hover { background-color: #252c32; border-color: #c89b3c; }
@@ -14,7 +14,7 @@
         .player-list { text-align: left; margin: 20px 0; border: 1px solid #3c3c3c; padding: 10px; max-height: 150px; overflow-y: auto; }
         .secret-box { background: #0a1428; border: 2px dashed #c89b3c; padding: 20px; margin: 20px 0; }
         img { width: 160px; border: 3px solid #785a28; margin-top: 15px; }
-        #timer { font-size: 3rem; color: #c8aa6e; font-weight: bold; margin: 20px 0; }
+        .vote-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); margin: 5px 0; padding: 5px 15px; border-radius: 4px; }
         .hidden { display: none; }
     </style>
 </head>
@@ -36,19 +36,20 @@
         <h3 id="reveal-target-name"></h3>
         <div id="secret-content" class="hidden">
             <div id="role-data" class="secret-box"></div>
-            <p style="color: #c8aa6e;">Hiding in 2 seconds...</p>
+            <p style="color: #c8aa6e;">Hiding in 5 seconds...</p>
         </div>
         <button id="show-btn" onclick="showSecret()">I AM READY (SHOW ROLE)</button>
     </div>
 
     <div id="gameplay-screen" class="hidden">
         <h2 id="game-status">Discussion Phase</h2>
-        <div id="timer">03:00</div>
+        <p>Discuss on Discord. Log votes as they are called out.</p>
         <div id="vote-section" class="hidden">
-            <h3>Who is the Impostor?</h3>
             <div id="vote-buttons"></div>
+            <button onclick="resetVotes()" style="font-size: 0.7rem; opacity: 0.7;">Reset All Votes</button>
+            <button id="finalize-btn" style="background:#785a28; color:white; margin-top:20px; width: 100%;" onclick="calculateWinner()">FINALIZE RESULTS</button>
         </div>
-        <button id="vote-btn" onclick="startVoting()">Go to Voting</button>
+        <button id="start-vote-btn" onclick="showVotingUI()">Go to Voting</button>
     </div>
 </div>
 
@@ -57,28 +58,27 @@
 
 <script>
     let players = [];
+    let votes = {};
     let currentPlayerIndex = 0;
     let impostorIndex = -1;
     let targetChamp = null;
-    let countdown;
 
     const CHAMPION_POOL = [
-        { name: "Aatrox", region: "Runeterra", weapon: "Greatsword", range: "Melee" },
-        { name: "Ahri", region: "Ionia", weapon: "Orb", range: "Ranged" },
-        { name: "Akali", region: "Ionia", weapon: "Kama", range: "Melee" },
-        { name: "Ashe", region: "Freljord", weapon: "Ice Bow", range: "Ranged" },
-        { name: "Braum", region: "Freljord", weapon: "Giant Shield", range: "Melee" },
-        { name: "Caitlyn", region: "Piltover", weapon: "Sniper Rifle", range: "Ranged" },
-        { name: "Darius", region: "Noxus", weapon: "Battleaxe", range: "Melee" },
-        { name: "Ezreal", region: "Piltover", weapon: "Magic Gauntlet", range: "Ranged" },
-        { name: "Garen", region: "Demacia", weapon: "Greatsword", range: "Melee" },
-        { name: "Jinx", region: "Zaun", weapon: "Minigun", range: "Ranged" },
-        { name: "Lux", region: "Demacia", weapon: "Wand", range: "Ranged" },
-        { name: "Yasuo", region: "Ionia", weapon: "Katana", range: "Melee" },
-        { name: "Zed", region: "Ionia", weapon: "Shadow Blades", range: "Melee" },
-        { name: "Thresh", region: "Shadow Isles", weapon: "Scythe", range: "Ranged" },
-        { name: "Teemo", region: "Bandle City", weapon: "Blowgun", range: "Ranged" }
-        // ... (Keep your full list here)
+        { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Heavy Blade", range: "Melee" },
+        { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Magic Catalyst", range: "Ranged" },
+        { name: "Akali", region: "Ionia", gender: "Female", weapon: "Bladed Tools", range: "Melee" },
+        { name: "Ashe", region: "Freljord", gender: "Female", weapon: "Bow", range: "Ranged" },
+        { name: "Braum", region: "Freljord", gender: "Male", weapon: "Shield", range: "Melee" },
+        { name: "Caitlyn", region: "Piltover", gender: "Female", weapon: "Firearm", range: "Ranged" },
+        { name: "Darius", region: "Noxus", gender: "Male", weapon: "Polearm", range: "Melee" },
+        { name: "Ezreal", region: "Piltover", gender: "Male", weapon: "Gauntlet", range: "Ranged" },
+        { name: "Garen", region: "Demacia", gender: "Male", weapon: "Heavy Blade", range: "Melee" },
+        { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Explosives/Guns", range: "Ranged" },
+        { name: "Lux", region: "Demacia", gender: "Female", weapon: "Staff", range: "Ranged" },
+        { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Blade", range: "Melee" },
+        { name: "Zed", region: "Ionia", gender: "Male", weapon: "Sharp Claws", range: "Melee" },
+        { name: "Thresh", region: "Shadow Isles", gender: "Male", weapon: "Chain Weapon", range: "Ranged" },
+        { name: "Teemo", region: "Bandle City", gender: "Male", weapon: "Blowgun", range: "Ranged" }
     ];
 
     function addPlayer() {
@@ -92,6 +92,7 @@
     }
 
     function startGame() {
+        document.getElementById("beep").play();
         targetChamp = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
         impostorIndex = Math.floor(Math.random() * players.length);
         currentPlayerIndex = 0;
@@ -104,27 +105,28 @@
         document.getElementById("secret-content").classList.add("hidden");
         document.getElementById("show-btn").classList.remove("hidden");
         document.getElementById("reveal-instruction").innerText = "EVERYONE CLOSE EYES!";
-        document.getElementById("reveal-target-name").innerText = `${players[currentPlayerIndex]}, it is your turn.`;
-        document.getElementById("beep").play();
+        document.getElementById("reveal-target-name").innerText = `${players[currentPlayerIndex]}, look now.`;
     }
 
     function showSecret() {
         document.getElementById("show-btn").classList.add("hidden");
         document.getElementById("secret-content").classList.remove("hidden");
-        document.getElementById("reveal-instruction").innerText = "YOUR SECRET:";
         
         const roleBox = document.getElementById("role-data");
         if (currentPlayerIndex === impostorIndex) {
-            // Give only ONE random hint
-            const hints = [`Region: ${targetChamp.region}`, `Weapon: ${targetChamp.weapon}`, `Range: ${targetChamp.range}`];
-            const randomHint = hints[Math.floor(Math.random() * hints.length)];
-            roleBox.innerHTML = `<h3>YOU ARE THE IMPOSTOR</h3><p>${randomHint}</p>`;
+            const hintOptions = [
+                `Region: ${targetChamp.region}`, 
+                `Weapon Class: ${targetChamp.weapon}`, 
+                `Range: ${targetChamp.range}`,
+                `Gender: ${targetChamp.gender}`
+            ];
+            const randomHint = hintOptions[Math.floor(Math.random() * hintOptions.length)];
+            roleBox.innerHTML = `<h3>YOU ARE THE IMPOSTOR</h3><p>ONE HINT:<br>${randomHint}</p>`;
         } else {
             const imgName = targetChamp.name.replace(/\s/g, '');
             roleBox.innerHTML = `<h3>CREW</h3><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><br><b>${targetChamp.name}</b>`;
         }
 
-        // AUTO-HIDE after 2 seconds
         setTimeout(() => {
             currentPlayerIndex++;
             if (currentPlayerIndex < players.length) {
@@ -132,44 +134,73 @@
             } else {
                 startDiscussion();
             }
-        }, 2500); // 2.5 seconds to be safe
+        }, 5000); 
     }
 
     function startDiscussion() {
+        document.getElementById("ding").play();
         document.getElementById("reveal-screen").classList.add("hidden");
         document.getElementById("gameplay-screen").classList.remove("hidden");
-        document.getElementById("ding").play();
-        
-        let time = 180;
-        countdown = setInterval(() => {
-            time--;
-            let mins = Math.floor(time / 60);
-            let secs = time % 60;
-            document.getElementById("timer").innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            if (time <= 0) {
-                clearInterval(countdown);
-                startVoting();
-            }
-        }, 1000);
     }
 
-    function startVoting() {
-        clearInterval(countdown);
-        document.getElementById("timer").innerText = "VOTING TIME";
-        document.getElementById("vote-btn").classList.add("hidden");
+    function showVotingUI() {
+        document.getElementById("start-vote-btn").classList.add("hidden");
         document.getElementById("vote-section").classList.remove("hidden");
-        const votes = document.getElementById("vote-buttons");
-        votes.innerHTML = players.map((p, i) => `<button onclick="endGame(${i})">${p}</button>`).join("");
+        players.forEach((_, i) => votes[i] = 0);
+        renderVoteButtons();
     }
 
-    function endGame(votedIdx) {
+    function logVote(idx) {
+        votes[idx]++;
+        renderVoteButtons();
+    }
+
+    function resetVotes() {
+        players.forEach((_, i) => votes[i] = 0);
+        renderVoteButtons();
+    }
+
+    function renderVoteButtons() {
+        const container = document.getElementById("vote-buttons");
+        container.innerHTML = players.map((p, i) => `
+            <div class="vote-row">
+                <span>${p}</span>
+                <div>
+                    <span style="color:#c8aa6e; margin-right:15px; font-weight:bold;">${votes[i]}</span>
+                    <button onclick="logVote(${i})">+</button>
+                </div>
+            </div>
+        `).join("");
+    }
+
+    function calculateWinner() {
+        let maxVotes = -1;
+        let winners = [];
+
+        for (let i in votes) {
+            if (votes[i] > maxVotes) {
+                maxVotes = votes[i];
+                winners = [i];
+            } else if (votes[i] === maxVotes) {
+                winners.push(i);
+            }
+        }
+
+        if (winners.length > 1) {
+            alert("TIE! The suspected players must argue for 30s before a final vote.");
+            return;
+        }
+
+        const votedIdx = parseInt(winners[0]);
         const win = votedIdx === impostorIndex;
+        
         document.getElementById("game-area").innerHTML = `
             <h1>${win ? 'CREW WINS!' : 'IMPOSTOR WINS!'}</h1>
-            <p>${players[votedIdx]} was voted out.</p>
-            <p>The Impostor was: <b>${players[impostorIndex]}</b></p>
-            <p>The Champion was: <b>${targetChamp.name}</b></p>
-            <button onclick="location.reload()">New Game</button>
+            <p>${players[votedIdx]} was eliminated.</p>
+            <hr style="border-top:1px solid #785a28">
+            <p>The Impostor: <b>${players[impostorIndex]}</b></p>
+            <p>The Champion: <b>${targetChamp.name}</b></p>
+            <button onclick="location.reload()">Play Again</button>
         `;
     }
 </script>
