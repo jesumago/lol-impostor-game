@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoL Impostor Game</title>
+    <script src="https://unpkg.com/playroomkit/multiplayer.umd.js"></script>
+    <style>
+        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #game-area { background: rgba(10, 20, 40, 0.9); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 90%; max-width: 500px; }
+        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 12px 24px; margin: 10px; cursor: pointer; font-weight: bold; text-transform: uppercase; border-radius: 4px; }
+        button:hover { background-color: #252c32; border-color: #c89b3c; }
+        .timer { font-size: 3rem; color: #c8aa6e; margin: 20px 0; }
+        img { width: 120px; border-radius: 50%; border: 3px solid #785a28; margin-top: 15px; }
+        .role-box { padding: 20px; border: 1px dashed #785a28; margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+<div id="game-area">
+    <h1 id="status">Loading Hextech...</h1>
+    <div id="content"></div>
+</div>
+
+<script>
+const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlayers } = Playroom;
+
+const CHAMPION_POOL = [
+    { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
+    { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
+    { name: "Akali", region: "Ionia", gender: "Female", weapon: "Kama", range: "Melee" },
+    { name: "Ashe", region: "Freljord", gender: "Female", weapon: "Bow", range: "Ranged" },
+    { name: "Braum", region: "Freljord", gender: "Male", weapon: "Shield", range: "Melee" },
+    { name: "Caitlyn", region: "Piltover", gender: "Female", weapon: "Rifle", range: "Ranged" },
+    { name: "Darius", region: "Noxus", gender: "Male", weapon: "Axe", range: "Melee" },
+    { name: "Ezreal", region: "Piltover", gender: "Male", weapon: "Gauntlet", range: "Ranged" },
+    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" },
+    { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun", range: "Ranged" },
+    { name: "Lux", region: "Demacia", gender: "Female", weapon: "Wand", range: "Ranged" },
+    { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Katana", range: "Melee" }
+    // ADD MORE HERE
+];
+
+async function init() {
+    await insertCoin({streamMode: true}); // streamMode makes it easier to test
+    
+    if (isHost()) {
+        const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
+        const players = getPlayers();
+        const impostor = players[Math.floor(Math.random() * players.length)];
+        
+        setState("targetChamp", champ, true);
+        setState("impostorId", impostor.id, true);
+        setState("gamePhase", "ROLE_REVEAL", true);
+        
+        // Start the game button for host
+        document.getElementById('status').innerHTML = '<button onclick="startGame()">START GAME</button>';
+    } else {
+        document.getElementById('status').innerText = "Waiting for host...";
+    }
+    
+    loop();
+}
+
+function startGame(){
+    setState("gamePhase", "ROLE_REVEAL", true);
+}
+
+function loop() {
+    const phase = getState("gamePhase");
+    const content = document.getElementById("content");
+    const status = document.getElementById("status");
+
+    if (phase === "ROLE_REVEAL") {
+        const isImpostor = myPlayer().id === getState("impostorId");
+        const champ = getState("targetChamp");
+        status.innerText = isImpostor ? "YOU ARE THE IMPOSTOR" : "YOU ARE CREW";
+        content.innerHTML = isImpostor ? 
+            `<div class="role-box">HINTS:<br>Region: ${champ.region}<br>Gender: ${champ.gender}<br>Weapon: ${champ.weapon}</div>` :
+            `<img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
+        
+        if(isHost()){
+            setTimeout(() => { if(getState("gamePhase") === "ROLE_REVEAL") startTurns(); }, 10000);
+        }
+    }
+
+    if (phase === "TALKING") {
+        const players = getPlayers();
+        const speakerIdx = getState("speakerIndex") || 0;
+        const currentSpeaker = players[speakerIdx];
+        status.innerText = `${currentSpeaker.getProfile().name} is speaking...`;
+        content.innerHTML = `<div class="timer">${getState("turnTimer")}</div>`;
+        
+        if (isHost()) {
+            // Very basic host timer
+            const now = Date.now();
+            if (!this.lastTick || now - this.lastTick > 1000) {
+                this.lastTick = now;
+                let t = getState("turnTimer");
+                if (t > 0) setState("turnTimer", t - 1, true);
+                else nextTurn();
+            }
+        }
+    }
+
+    if (phase === "VOTING") {
+        status.innerText = "Cast your Vote!";
+        if (!myPlayer().getState("votedFor")) {
+            content.innerHTML = "";
+            getPlayers().forEach(p => {
+                const b = document.createElement("button");
+                b.innerText = p.getProfile().name;
+                b.onclick = () => { myPlayer().setState("votedFor", p.id, true); };
+                content.appendChild(b);
+            });
+        } else {
+            content.innerHTML = "Vote cast! Waiting...";
+        }
+
+        if (isHost()) {
+            if (getPlayers().every(p => p.getState("votedFor"))) calcResults();
+        }
+    }
+
+    if (phase === "RESULTS") {
+        const winner = getState("winner");
+        status.innerText = winner === "IMPOSTOR" ? "IMPOSTOR WON!" : "CREW WON!";
+        content.innerHTML = `<button onclick="location.reload()">PLAY AGAIN</button>`;
+    }
+
+    requestAnimationFrame(loop);
+}
+
+function startTurns() {
+    setState("gamePhase", "TALKING", true);
+    setState("speakerIndex", 0, true);
+    setState("turnTimer", 30, true);
+}
+
+function nextTurn() {
+    let idx = getState("speakerIndex");
+    if (idx < getPlayers().length - 1) {
+        setState("speakerIndex", idx + 1, true);
+        setState("turnTimer", 30, true);
+    } else {
+        setState("gamePhase", "VOTING", true);
+    }
+}
+
+function calcResults() {
+    const votes = {};
+    getPlayers().forEach(p => {
+        const v = p.getState("votedFor");
+        votes[v] = (votes[v] || 0) + 1;
+    });
+    const mostVoted = Object.keys(votes).reduce((a, b) => votes[a] > votes[b] ? a : b);
+    setState("winner", mostVoted === getState("impostorId") ? "CREW" : "IMPOSTOR", true);
+    setState("gamePhase", "RESULTS", true);
+}
+
+init();
+</script>
+</body>
+</html>
