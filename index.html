@@ -53,27 +53,33 @@ const CHAMPION_POOL = [
 
 async function init() {
     try {
-        // Adding match-making skip to bypass common connection hangs
+        // We add a specific gameId and disable the default lobby 
+        // to bypass connection hangs.
         await insertCoin({
-            skipLobby: false,
-            gameId: "lol-impostor-game" 
+            gameId: "lol-impostor-game-v1",
+            skipLobby: true, 
+            matchmaking: true
         }); 
         
-        onChatMessage((message, sender) => {
-            addChatMessage(sender.getProfile().name, message);
+        // Listen for chat
+        onChatMessage((msg, sender) => {
+            const chatBox = document.getElementById("chat-box");
+            if(chatBox){
+                chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
         });
 
         if (isHost()) {
             setupNewRound();
         }
         
-        // Hide the loading status once connected
+        // Success! Clear the status message
         document.getElementById("status").innerText = "";
-        loop();
-    } catch (err) {
-        console.error("Playroom failed to load:", err);
-        // This is the message you are seeing in image_749c8d.png
-        document.getElementById("status").innerText = "Connection Error. Please Refresh.";
+        requestAnimationFrame(gameLoop);
+    } catch(e) {
+        console.error(e);
+        document.getElementById("status").innerText = "Connection Failed. Try refreshing once more.";
     }
 }
 
