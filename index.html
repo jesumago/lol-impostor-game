@@ -1,50 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoL Impostor Game</title>
+    <script src="https://unpkg.com/playroomkit/multiplayer.umd.js"></script>
+    <style>
+        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 400px; }
+        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; }
+        img { width: 140px; border: 3px solid #785a28; margin-top: 10px; }
+        #chat-box { height: 100px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 5px; text-align: left; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div id="game-area">
+    <div id="status"><h1>Connecting to Hextech...</h1><p>Please wait for the nickname popup.</p></div>
+    <div id="content"></div>
+    <div id="chat-container">
+        <div id="chat-box"></div>
+        <input type="text" id="chat-input" placeholder="Type answer...">
+        <button onclick="sendChat()">SEND</button>
+    </div>
+</div>
+
 <script>
-const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlayers, onChatMessage, RPC } = Playroom;
+const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlayers, onChatMessage } = Playroom;
 
 const CHAMPION_POOL = [
     { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
     { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
-    { name: "Akali", region: "Ionia", gender: "Female", weapon: "Kama", range: "Melee" },
-    { name: "Ashe", region: "Freljord", gender: "Female", weapon: "Bow", range: "Ranged" },
-    { name: "Braum", region: "Freljord", gender: "Male", weapon: "Shield", range: "Melee" },
-    { name: "Caitlyn", region: "Piltover", gender: "Female", weapon: "Rifle", range: "Ranged" },
-    { name: "Darius", region: "Noxus", gender: "Male", weapon: "Axe", range: "Melee" },
-    { name: "Ezreal", region: "Piltover", gender: "Male", weapon: "Gauntlet", range: "Ranged" },
-    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" },
     { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun", range: "Ranged" },
-    { name: "Lux", region: "Demacia", gender: "Female", weapon: "Wand", range: "Ranged" },
-    { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Katana", range: "Melee" }
+    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" }
 ];
 
 async function init() {
-    // We remove the try/catch completely. 
-    // This stops the "Storage Blocked" box from appearing.
-    await insertCoin({
-        gameId: "lol-impostor-v100", 
-        skipLobby: true
-    }); 
-
-    // Once connected, hide the loading screen
-    document.getElementById("status").style.display = "none";
-    
-    onChatMessage((msg, sender) => {
-        const chatBox = document.getElementById("chat-box");
-        if(chatBox){
+    try {
+        await insertCoin({ gameId: "lol-imp-v7", skipLobby: true });
+        document.getElementById("status").style.display = "none";
+        
+        onChatMessage((msg, sender) => {
+            const chatBox = document.getElementById("chat-box");
             chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
-        }
-    });
+        });
 
-    if (isHost()) {
-        setupNewRound();
+        if (isHost()) { setupNewRound(); }
+        gameLoop();
+    } catch (e) {
+        document.getElementById("status").innerHTML = "<h1>Connection Error</h1><p>Check popup/cookie settings.</p>";
     }
-    
-    requestAnimationFrame(gameLoop);
 }
+
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
-    const players = getPlayers();
-    const impostor = players[Math.floor(Math.random() * players.length)];
+    const impostor = getPlayers()[Math.floor(Math.random() * getPlayers().length)];
     setState("targetChamp", champ, true);
     setState("impostorId", impostor.id, true);
     setState("gamePhase", "LOBBY", true);
@@ -53,11 +64,10 @@ function setupNewRound() {
 function gameLoop() {
     const phase = getState("gamePhase");
     const content = document.getElementById("content");
-    const statusHeader = document.getElementById("status");
 
     if (phase === "LOBBY") {
         content.innerHTML = isHost() ? 
-            `<h2>Lobby</h2><button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START</button>` : 
+            `<h2>Lobby</h2><button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>` : 
             "<h2>Lobby</h2><p>Waiting for host...</p>";
     }
 
@@ -67,14 +77,7 @@ function gameLoop() {
         content.innerHTML = isImpostor ? 
             `<h1>IMPOSTOR</h1><p>HINTS: ${champ.region}, ${champ.weapon}</p>` :
             `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${champ.name}.png"><h2>${champ.name}</h2>`;
-        
-        if(isHost()){
-            setTimeout(() => { if(getState("gamePhase") === "ROLE_REVEAL") setState("gamePhase", "TALKING", true); }, 8000);
-        }
     }
-
-    // (Simplified talking/voting for testing)
-    if (phase === "TALKING") { content.innerHTML = "<h2>Discuss!</h2>"; }
 
     requestAnimationFrame(gameLoop);
 }
@@ -89,3 +92,5 @@ function sendChat() {
 
 init();
 </script>
+</body>
+</html>
