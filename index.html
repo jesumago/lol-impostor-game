@@ -53,14 +53,15 @@ const CHAMPION_POOL = [
 
 async function init() {
     try {
-        // Changing the gameId forces the browser to create a clean new room
+        // We use a unique ID to ensure you aren't trying to join a "ghost" session
         await insertCoin({
-            gameId: "lol-impostor-fresh-v2", 
-            skipLobby: true
+            gameId: "lol-impostor-final-v3", 
+            skipLobby: true,
+            matchmaking: true
         }); 
         
-        // This clears the error message immediately on success
-        document.getElementById("status").innerText = "";
+        // If this runs, it means you are successfully connected!
+        document.getElementById("status").style.display = "none";
         
         onChatMessage((msg, sender) => {
             const chatBox = document.getElementById("chat-box");
@@ -77,11 +78,10 @@ async function init() {
         requestAnimationFrame(gameLoop);
     } catch(e) {
         console.error("Connection Error:", e);
-        // This is the text you see in your last screenshot
-        document.getElementById("status").innerText = "Still blocked? Try a Non-Incognito window.";
+        // This confirms the connection is failing at the SDK level
+        document.getElementById("status").innerText = "Storage Blocked. Check browser Cookie settings.";
     }
 }
-
 function setupNewRound() {
     const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
     const impostor = getPlayers()[Math.floor(Math.random() * getPlayers().length)];
