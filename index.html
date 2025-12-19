@@ -90,7 +90,29 @@ function sendChat() {
     }
 }
 
-init();
+async function init() {
+    try {
+        // Most basic connection possible to avoid timeouts
+        await insertCoin(); 
+        
+        // Hide the error box immediately on success
+        document.getElementById("status").style.display = "none";
+        
+        onChatMessage((msg, sender) => {
+            const chatBox = document.getElementById("chat-box");
+            if(chatBox){
+                chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        });
+
+        if (isHost()) { setupNewRound(); }
+        requestAnimationFrame(gameLoop);
+    } catch (e) {
+        // This is what you see in image_757e1f.png
+        console.error(e);
+    }
+};
 </script>
 </body>
 </html>
