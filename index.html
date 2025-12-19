@@ -3,123 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoL Impostor Game</title>
-    <script src="https://unpkg.com/playroomkit/multiplayer.umd.js"></script>
+    <title>LoL Impostor: Screenshare Edition</title>
     <style>
-        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 20px; border-radius: 8px; text-align: center; width: 450px; }
-        .join-btn { background-color: #c8aa6e; color: #010a13; border: 1px solid #785a28; padding: 20px 40px; font-size: 24px; cursor: pointer; font-weight: bold; border-radius: 4px; }
-        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 10px 15px; margin: 5px; cursor: pointer; font-weight: bold; }
-        img { width: 140px; border: 3px solid #785a28; margin-top: 10px; }
-        #chat-box { height: 100px; overflow-y: auto; background: rgba(0,0,0,0.3); margin: 10px 0; padding: 8px; text-align: left; font-size: 0.85rem; }
+        body { background-color: #010a13; color: #f0e6d2; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #game-area { background: rgba(10, 20, 40, 0.95); border: 2px solid #785a28; padding: 30px; border-radius: 8px; text-align: center; width: 500px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        h1 { color: #c8aa6e; text-transform: uppercase; letter-spacing: 2px; }
+        button { background-color: #1e2328; color: #cdbe91; border: 1px solid #785a28; padding: 12px 20px; margin: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
+        button:hover { background-color: #252c32; border-color: #c89b3c; color: #f0e6d2; }
+        input { background: #010a13; color: #f0e6d2; border: 1px solid #785a28; padding: 10px; width: 70%; margin-bottom: 10px; }
+        .player-list { text-align: left; margin: 20px 0; border: 1px solid #3c3c3c; padding: 10px; max-height: 150px; overflow-y: auto; }
+        .secret-box { background: #0a1428; border: 2px dashed #c89b3c; padding: 20px; margin: 20px 0; }
+        img { width: 160px; border: 3px solid #785a28; margin-top: 15px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div id="game-area">
-    <div id="ui-container">
-        <h1>Hextech Portal</h1>
-        <button class="join-btn" onclick="startMultiplayer()">JOIN GAME</button>
-        <p id="message">Attempting to sync with Hextech servers...</p>
+    <h1>Hextech Impostor</h1>
+    <hr style="border: 0; border-top: 1px solid #785a28; margin-bottom: 20px;">
+
+    <div id="setup-screen">
+        <h3>Enter Player Names</h3>
+        <input type="text" id="name-input" placeholder="Enter name...">
+        <button onclick="addPlayer()">Add</button>
+        <div class="player-list" id="display-list">No players added yet.</div>
+        <button id="start-btn" class="hidden" onclick="startGame()" style="background: #785a28; color: #fff;">Start Match</button>
     </div>
 
-    <div id="main-game" style="display:none;">
-        <div id="content"></div>
-        <div id="chat-container">
-            <div id="chat-box"></div>
-            <input type="text" id="chat-input" placeholder="Type answer...">
-            <button onclick="sendChat()">SEND</button>
+    <div id="reveal-screen" class="hidden">
+        <h2 id="reveal-instruction">Everyone close your eyes!</h2>
+        <p id="reveal-target-name"></p>
+        <div id="secret-content" class="hidden">
+            <div id="role-data" class="secret-box"></div>
+            <button onclick="nextPlayer()">I've seen it. Hide!</button>
         </div>
+        <button id="show-btn" onclick="showSecret()">I am [Name], show my role</button>
+    </div>
+
+    <div id="gameplay-screen" class="hidden">
+        <h2 id="game-status">Discussion Phase</h2>
+        <div id="game-main-content"></div>
+        <hr style="border: 0; border-top: 1px solid #785a28; margin: 20px 0;">
+        <div id="vote-section" class="hidden">
+            <h3>Who is the Impostor?</h3>
+            <div id="vote-buttons"></div>
+        </div>
+        <button id="end-discussion-btn" onclick="startVoting()">End Discussion & Vote</button>
     </div>
 </div>
 
 <script>
-const { insertCoin, onPlayerJoin, myPlayer, isHost, setState, getState, getPlayers, onChatMessage } = Playroom;
+    let players = [];
+    let currentPlayerIndex = 0;
+    let impostorIndex = -1;
+    let targetChamp = null;
 
-const CHAMPION_POOL = [
-    { name: "Aatrox", region: "Runeterra", gender: "Male", weapon: "Greatsword", range: "Melee" },
-    { name: "Ahri", region: "Ionia", gender: "Female", weapon: "Orb", range: "Ranged" },
-    { name: "Akali", region: "Ionia", gender: "Female", weapon: "Kama", range: "Melee" },
-    { name: "Ashe", region: "Freljord", gender: "Female", weapon: "Ice Bow", range: "Ranged" },
-    { name: "Braum", region: "Freljord", gender: "Male", weapon: "Shield", range: "Melee" },
-    { name: "Caitlyn", region: "Piltover", gender: "Female", weapon: "Rifle", range: "Ranged" },
-    { name: "Darius", region: "Noxus", gender: "Male", weapon: "Axe", range: "Melee" },
-    { name: "Ezreal", region: "Piltover", gender: "Male", weapon: "Gauntlet", range: "Ranged" },
-    { name: "Garen", region: "Demacia", gender: "Male", weapon: "Greatsword", range: "Melee" },
-    { name: "Jinx", region: "Zaun", gender: "Female", weapon: "Minigun", range: "Ranged" },
-    { name: "Lux", region: "Demacia", gender: "Female", weapon: "Wand", range: "Ranged" },
-    { name: "Yasuo", region: "Ionia", gender: "Male", weapon: "Katana", range: "Melee" }
-];
+    const CHAMPION_POOL = [
+        { name: "Aatrox", region: "Runeterra", weapon: "Greatsword" },
+        { name: "Ahri", region: "Ionia", weapon: "Orb" },
+        { name: "Akali", region: "Ionia", weapon: "Kama" },
+        { name: "Caitlyn", region: "Piltover", weapon: "Rifle" },
+        { name: "Darius", region: "Noxus", weapon: "Axe" },
+        { name: "Ezreal", region: "Piltover", weapon: "Gauntlet" },
+        { name: "Garen", region: "Demacia", weapon: "Greatsword" },
+        { name: "Jinx", region: "Zaun", weapon: "Minigun" },
+        { name: "Lux", region: "Demacia", weapon: "Wand" },
+        { name: "Yasuo", region: "Ionia", weapon: "Katana" }
+        // Feel free to paste your full 100+ list here!
+    ];
 
-async function startMultiplayer() {
-    const msg = document.getElementById("message");
-    msg.innerText = "Attempting to sync with Hextech servers...";
-    
-    try {
-        // Safe mode connection - No popup window
-        await insertCoin({ skipLobby: true }); 
-        
-        document.getElementById("ui-container").style.display = "none";
-        document.getElementById("main-game").style.display = "block";
-
-        onChatMessage((msg, sender) => {
-            const chatBox = document.getElementById("chat-box");
-            chatBox.innerHTML += `<div><strong>${sender.getProfile().name}:</strong> ${msg}</div>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
-        });
-
-        if (isHost()) { setupNewRound(); }
-        gameLoop();
-    } catch (e) {
-        msg.innerText = "Connection blocked by network. Try switching to mobile data.";
-        console.error("Sync Error:", e);
-    }
-}
-
-function setupNewRound() {
-    const champ = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
-    const players = getPlayers();
-    const impostor = players[Math.floor(Math.random() * players.length)];
-    setState("targetChamp", champ, true);
-    setState("impostorId", impostor.id, true);
-    setState("gamePhase", "LOBBY", true);
-}
-
-function gameLoop() {
-    const phase = getState("gamePhase");
-    const content = document.getElementById("content");
-
-    if (phase === "LOBBY") {
-        content.innerHTML = isHost() ? 
-            `<h2>Lobby</h2>
-             <button onclick="setState('gamePhase', 'ROLE_REVEAL', true)">START GAME</button>
-             <button onclick="setupNewRound()">RE-ROLL CHAMPION</button>` : 
-            "<h2>Lobby</h2><p>Waiting for host to start...</p>";
-    }
-
-    if (phase === "ROLE_REVEAL") {
-        const isImpostor = myPlayer().id === getState("impostorId");
-        const champ = getState("targetChamp");
-        const imgName = champ.name.replace(/\s/g, ''); 
-        
-        content.innerHTML = isImpostor ? 
-            `<h1>IMPOSTOR</h1><p>HINTS:<br>Region: ${champ.region}<br>Weapon: ${champ.weapon}</p>` :
-            `<h1>CREW</h1><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><h2>${champ.name}</h2>`;
-        
-        if (isHost()) {
-            content.innerHTML += `<br><button onclick="setState('gamePhase', 'LOBBY', true)">BACK TO LOBBY</button>`;
+    function addPlayer() {
+        const input = document.getElementById("name-input");
+        if (input.value.trim() !== "") {
+            players.push(input.value.trim());
+            input.value = "";
+            updatePlayerList();
         }
     }
-    requestAnimationFrame(gameLoop);
-}
 
-function sendChat() {
-    const input = document.getElementById("chat-input");
-    if (input.value.trim() !== "") {
-        Playroom.chat(input.value);
-        input.value = "";
+    function updatePlayerList() {
+        const list = document.getElementById("display-list");
+        list.innerHTML = players.map(p => `• ${p}`).join("<br>");
+        if (players.length >= 3) document.getElementById("start-btn").classList.remove("hidden");
     }
-}
+
+    function startGame() {
+        targetChamp = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
+        impostorIndex = Math.floor(Math.random() * players.length);
+        currentPlayerIndex = 0;
+        
+        document.getElementById("setup-screen").classList.add("hidden");
+        document.getElementById("reveal-screen").classList.remove("hidden");
+        prepareNextReveal();
+    }
+
+    function prepareNextReveal() {
+        document.getElementById("secret-content").classList.add("hidden");
+        document.getElementById("show-btn").classList.remove("hidden");
+        document.getElementById("reveal-instruction").innerText = "EYES CLOSED!";
+        document.getElementById("reveal-target-name").innerText = `Only ${players[currentPlayerIndex]} may look.`;
+        document.getElementById("show-btn").innerText = `I am ${players[currentPlayerIndex]}, show my role`;
+    }
+
+    function showSecret() {
+        document.getElementById("show-btn").classList.add("hidden");
+        document.getElementById("secret-content").classList.remove("hidden");
+        document.getElementById("reveal-instruction").innerText = "YOUR ROLE:";
+        
+        const roleBox = document.getElementById("role-data");
+        if (currentPlayerIndex === impostorIndex) {
+            roleBox.innerHTML = `<h3>YOU ARE THE IMPOSTOR!</h3><p>HINTS:<br>Region: ${targetChamp.region}<br>Weapon: ${targetChamp.weapon}</p>`;
+        } else {
+            const imgName = targetChamp.name.replace(/\s/g, '');
+            roleBox.innerHTML = `<h3>YOU ARE CREW</h3><img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${imgName}.png"><h2>${targetChamp.name}</h2>`;
+        }
+    }
+
+    function nextPlayer() {
+        currentPlayerIndex++;
+        if (currentPlayerIndex < players.length) {
+            prepareNextReveal();
+        } else {
+            startGameplay();
+        }
+    }
+
+    function startGameplay() {
+        document.getElementById("reveal-screen").classList.add("hidden");
+        document.getElementById("gameplay-screen").classList.remove("hidden");
+        document.getElementById("game-main-content").innerHTML = "<h3>Discussion Time!</h3><p>Talk on Discord. Try to find the Impostor!</p>";
+    }
+
+    function startVoting() {
+        document.getElementById("end-discussion-btn").classList.add("hidden");
+        document.getElementById("vote-section").classList.remove("hidden");
+        const btnContainer = document.getElementById("vote-buttons");
+        
+        btnContainer.innerHTML = players.map((p, idx) => 
+            `<button onclick="revealResult(${idx})">${p}</button>`
+        ).join("");
+    }
+
+    function revealResult(votedIdx) {
+        const isCorrect = votedIdx === impostorIndex;
+        const mainContent = document.getElementById("game-main-content");
+        
+        document.getElementById("vote-section").classList.add("hidden");
+        document.getElementById("game-status").innerText = "Match Results";
+        
+        mainContent.innerHTML = `
+            <h1 style="color: ${isCorrect ? '#50fa7b' : '#ff5555'}">${isCorrect ? 'CREW WINS!' : 'IMPOSTOR WINS!'}</h1>
+            <p>${players[votedIdx]} was voted out.</p>
+            <p>The Impostor was: <strong>${players[impostorIndex]}</strong></p>
+            <p>The Champion was: <strong>${targetChamp.name}</strong></p>
+            <button onclick="location.reload()">Play Again</button>
+        `;
+    }
 </script>
+
 </body>
 </html>
